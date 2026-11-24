@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta name="color-scheme" content="light">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>タスクページ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* タスクはこのページのデータベースが正。カテゴリ別の一覧＋右にチャット（変更・追加）と元に戻す履歴 */
+:root{
+  --bg:#f3f4f1; --panel:#ffffff; --ink:#56615c; --ink-soft:#727d78; --ink-strong:#2c3531; --muted:#86918c; --line:#dde1dc;
+  --accent:#1f6f5c; --accent-soft:#e3f0ec;
+  --over:#c8382c; --over-soft:#fbe7e4; --soon:#b7791f; --soon-soft:#fbf0dc; --pend:#4a5bc4; --pend-soft:#e8ebfb;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme:light;
+}
+
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.topbar{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.topin{max-width:1400px;margin:0 auto;padding:12px 16px 10px;display:flex;flex-direction:column;gap:10px}
+.wrap{max-width:1400px;margin:0 auto;padding:16px 16px 48px;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(400px,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}}
+header{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;justify-content:space-between}
+h1{font-size:22px;margin:0;color:var(--ink-strong);letter-spacing:.02em;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 12px;font-size:13px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--panel);font-weight:700}
+.btn.small{padding:3px 9px;font-size:12px}
+input[type=search],select,input[type=text],input[type=date]{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 10px;font-size:13px}
+.summary{display:flex;flex-wrap:wrap;gap:6px}
+.tile{display:flex;gap:6px;align-items:center;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 12px;font-size:12.5px;color:var(--ink)}
+.tile .dot{margin-right:0}
+.tile .dot.pend{background:var(--pend)}
+.tile[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.notice{border-radius:10px;padding:10px 14px;font-size:13px;background:var(--soon-soft);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.notice[hidden]{display:none}
+main{display:flex;flex-direction:column;gap:14px;min-width:0}
+.cluster{display:flex;flex-direction:column;gap:10px}
+.cat{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.cat h2{margin:0;font-size:14px;padding:8px 10px 8px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--ink-strong)}
+.catname{background:none;border:0;padding:2px 4px;margin-left:-4px;border-radius:6px;font-weight:700;text-align:left;color:var(--ink-strong)}
+.catname:hover{background:var(--bg)}
+.catname::after{content:"✎";font-weight:400;color:var(--muted);font-size:11px;margin-left:6px;opacity:0}
+.catname:hover::after,.catname:focus-visible::after{opacity:1}
+.catinput{font-weight:700;font-size:14px;width:min(100%,360px)}
+.catctl{display:flex;gap:2px}
+.catctl button{border:1px solid transparent;background:none;border-radius:6px;color:var(--muted);width:26px;height:24px;font-size:13px}
+.catctl button:hover{border-color:var(--line);color:var(--ink-strong)}
+.catctl button:disabled{opacity:.3;cursor:default}
+.cluster.multi{border-left:3px solid var(--accent-soft);padding-left:10px}
+.cluster-label{font-size:12px;color:var(--muted);letter-spacing:.04em}
+ul{list-style:none;margin:0;padding:0}
+.task{border-top:1px solid var(--line)}
+.cat ul>.task:first-child{border-top:0}
+.row{display:grid;grid-template-columns:30px 22px minmax(0,1fr) auto;gap:8px;align-items:start;padding:9px 14px}
+.child .row{padding-left:44px}
+.no{font-family:var(--f-num);font-size:12px;color:var(--muted);padding-top:2px;text-align:right;font-variant-numeric:tabular-nums}
+.chk{width:18px;height:18px;margin-top:3px;accent-color:var(--accent)}
+.name{background:none;border:0;padding:0;text-align:left;line-height:1.5;overflow-wrap:anywhere}
+.parent>.row .name{font-weight:500;color:var(--ink)}
+.child .name{font-size:14px;color:var(--ink-soft)}
+.task.m-over>.row .name{color:var(--ink-strong)}
+.parent.m-over>.row .name{font-weight:700}
+.name:hover{color:var(--accent)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;vertical-align:1px}
+.dot.over,.dot.today{background:#e5483b} .dot.soon{background:#f2b705}
+.tag{font-size:11px;color:var(--muted);margin-left:6px;white-space:nowrap}
+.badge{font-size:11px;border-radius:6px;padding:1px 6px;margin-left:6px;background:var(--pend-soft);color:var(--pend);white-space:nowrap}
+.due{font-family:var(--f-num);font-size:12px;color:var(--muted);white-space:nowrap;padding-top:2px;font-variant-numeric:tabular-nums}
+.due.over,.due.today{color:var(--over)} .due.soon{color:var(--soon)}
+.task.done>.row .name{text-decoration:line-through;color:var(--muted)}
+.detail{padding:4px 14px 14px 74px;font-size:13px;display:flex;flex-direction:column;gap:10px}
+.child .detail{padding-left:104px}
+.detail dl{display:grid;grid-template-columns:96px 1fr;gap:4px 10px;margin:0}
+.detail dt{color:var(--muted)} .detail dd{margin:0;overflow-wrap:anywhere}
+.memo{background:var(--bg);border-radius:8px;padding:8px 10px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12.5px}
+.memo a,.detail a{color:var(--accent)}
+.actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.empty{padding:24px;text-align:center;color:var(--muted)}
+aside{display:flex;flex-direction:column;gap:14px;position:sticky;top:calc(var(--topbar-h,120px) + 12px)}
+@media (max-width:900px){aside{position:static}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.card h3{margin:0;font-size:14px}
+.chatlog{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto;font-size:13px}
+.msg{font-size:14px;border-radius:10px;padding:8px 10px;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.user{background:var(--accent-soft);align-self:flex-end;max-width:90%}
+.msg.bot{background:var(--bg);max-width:95%}
+.msg.hint{color:var(--muted);background:none;padding:0}
+textarea{width:100%;min-height:96px;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 10px;font-size:13px;resize:vertical}
+.pending li{display:flex;gap:8px;justify-content:space-between;align-items:flex-start;font-size:12.5px;padding:6px 0;border-top:1px solid var(--line)}
+.pending li:first-child{border-top:0}
+.x{border:0;background:none;color:var(--muted);font-size:12px;white-space:nowrap}
+.x:hover{color:var(--over)}
+.addform{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.addform .full{grid-column:1/-1}
+.addform label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.addform[hidden]{display:none}
+.foot{font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.btn,.name{transition:color .12s,border-color .12s}}
+.fld{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.fld input{font-size:14px;color:var(--ink-strong)}
+.detail select{max-width:240px}
+.pending.memolist li{display:block;font-size:12.5px;padding:6px 0;border-top:1px solid var(--line)}
+.memolist li:first-child{border-top:0}
+#chatfab,#chatclose{display:none}
+@media (max-width:900px){
+  .topin{padding:8px 12px;gap:8px}
+  header{gap:6px}
+  header h1{font-size:17px}
+  #srcline{display:none}
+  .tools{width:100%;gap:6px}
+  .tools #q{flex:1;min-width:120px}
+  .tools select{flex:1;min-width:0;max-width:50%}
+  .summary{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+  .tile{white-space:nowrap}
+  .wrap{padding:12px 12px 96px}
+  .row{grid-template-columns:22px 22px minmax(0,1fr) auto;padding:10px 10px;gap:6px}
+  .child .row{padding-left:26px}
+  .detail,.child .detail{padding:4px 10px 14px 12px}
+  .chk{width:20px;height:20px}
+  aside{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:20;max-height:80vh;overflow:auto;background:var(--bg);padding:12px;border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(0,0,0,.18);transform:translateY(105%);visibility:hidden}
+  body.chat-open aside{transform:none;visibility:visible}
+  .chatlog{max-height:30vh}
+  #chatfab{display:block;position:fixed;right:14px;bottom:14px;z-index:15;border:0;border-radius:999px;background:var(--accent);color:var(--panel);font-weight:700;padding:12px 18px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  body.chat-open #chatfab{display:none}
+  #chatclose{display:inline-block}
+}
+@media (prefers-reduced-motion:no-preference){aside{transition:transform .18s}}
+kbd{font-family:var(--f-num);font-size:10px;border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:4px;color:var(--muted)}
+@media (max-width:900px){kbd{display:none}}
+.daygrp{padding:2px 6px 2px 12px;gap:4px}
+.daygrp button{border:1px solid var(--line);background:none;border-radius:6px;min-width:24px;height:22px;font-family:var(--f-num);font-size:12px;color:var(--ink)}
+.daygrp button[aria-pressed="true"]{background:var(--ink-strong);color:var(--panel);border-color:var(--ink-strong)}
+#privbtn b{font-weight:700;color:var(--ink-strong)}
+.topin{gap:12px}
+header{align-items:center}
+header>div:first-child{display:flex;align-items:baseline;gap:12px}
+.tools{flex:1;justify-content:flex-end}
+.tools #q{flex:1;max-width:420px;min-width:180px;padding:8px 12px;font-size:14px}
+.summary{gap:10px 18px;align-items:center}
+.grp{display:flex;align-items:center;gap:8px}
+.glabel{white-space:nowrap;font-size:11.5px;color:var(--muted);letter-spacing:.06em}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;border-left:1px solid var(--line);background:none;padding:6px 9px;font-size:12.5px;color:var(--ink);display:inline-flex;align-items:center;white-space:nowrap}
+.seg button:first-child{border-left:0}
+.seg button:hover{background:var(--bg)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--panel);font-weight:700}
+.seg button[aria-pressed="true"] .dot{box-shadow:0 0 0 2px var(--panel)}
+.seg .dot{margin-right:5px}
+.keys{margin-left:auto;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.keys kbd{margin:0 2px 0 0}
+@media (max-width:1180px){.keys{display:none}}
+@media (max-width:900px){header>div:first-child{display:block}.summary{gap:8px}.tools #q{max-width:none}}
+.combo{position:relative;flex:0 1 260px;min-width:170px}
+.combo input{width:100%;padding:8px 30px 8px 12px;font-size:14px}
+.combo input::placeholder{color:var(--ink)}
+#pjclear{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--muted);font-size:16px;width:22px;height:22px;border-radius:50%}
+#pjclear:hover{background:var(--bg);color:var(--ink-strong)}
+#pjlist{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.14);max-height:320px;overflow:auto;padding:4px}
+#pjlist li{padding:7px 10px;border-radius:7px;font-size:13.5px;cursor:pointer;border:0}
+#pjlist li[aria-selected="true"],#pjlist li:hover{background:var(--accent-soft)}
+#pjlist li.cur{font-weight:700;color:var(--ink-strong)}
+#pjlist li.none{color:var(--muted);cursor:default}
+aside .keys{margin:0;padding:0 4px;display:block;white-space:normal;line-height:2}
+@media (max-width:1180px){aside .keys{display:block}}
+@media (max-width:900px){aside .keys{display:none}.combo{flex:1 1 140px;min-width:0}}
+.foldbtn::after{content:none}
+.cat h2:has(.foldbtn[aria-expanded="false"]){border-bottom:0}
+.foldbtn{color:var(--muted);font-weight:500}
+.cat{overflow:visible}
+.cat h2{position:sticky;top:var(--topbar-h,110px);z-index:3;background:var(--panel);border-radius:12px 12px 0 0;border-bottom:1px solid var(--line)}
+.cat h2:has(.foldbtn[aria-expanded="false"]){border-radius:12px}
+.pjline{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.5}
+.sendkey{font-family:var(--f-num);font-size:11px;font-weight:500;opacity:.75;margin-left:6px}
+.topin{padding:10px 16px;gap:8px;max-width:1400px}
+.bar{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap}
+.bar h1{font-size:17px;margin:0;white-space:nowrap}
+.bar .summary{flex:1 1 auto;gap:8px 14px}
+.bar .right{display:flex;gap:8px;align-items:center}
+.bar .summary{justify-content:flex-end}
+.tbtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:6px 11px;font-size:12.5px;color:var(--ink);max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tbtn:hover{border-color:var(--accent)}
+.tbtn.on{border-color:var(--accent);background:var(--accent-soft);color:var(--ink-strong);font-weight:700}
+#pjbtn::after{content:"▾";margin-left:2px;font-weight:400;color:var(--muted)}
+.qtext{max-width:120px;overflow:hidden;text-overflow:ellipsis}
+.qx{color:var(--muted);padding:0 2px;font-size:14px}
+.qx:hover{color:var(--over)}
+.pop{position:relative}
+.popbox{position:absolute;left:0;top:calc(100% + 6px);z-index:40;width:300px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.16);padding:8px;display:flex;flex-direction:column;gap:6px}
+.popbox[hidden]{display:none}
+#pjfilter{width:100%;padding:7px 10px;font-size:13.5px}
+#pjlist{list-style:none;margin:0;padding:0;max-height:320px;overflow:auto;position:static;border:0;box-shadow:none}
+#pjlist li{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;font-size:13.5px;cursor:pointer}
+#pjlist li.act,#pjlist li:hover{background:var(--bg)}
+#pjlist li[aria-selected="true"]{color:var(--ink-strong);font-weight:700}
+.cbox{width:16px;height:16px;border:1.5px solid var(--line);border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex:none;color:var(--panel)}
+#pjlist li[aria-selected="true"] .cbox{background:var(--accent);border-color:var(--accent)}
+.popfoot{display:flex;align-items:center;gap:6px;border-top:1px solid var(--line);padding-top:8px}
+.tbtn.small{padding:5px 10px;font-size:12px;flex:1;justify-content:center}
+.tbtn:disabled{opacity:.4;cursor:default;border-color:var(--line)}
+.maincol{display:flex;flex-direction:column;gap:10px;min-width:0}
+.listbar{display:flex;align-items:center;gap:8px;justify-content:flex-end;padding:0 2px}
+.seg.mini button{padding:3px 9px;font-size:11.5px}
+.linkbtn{white-space:nowrap;margin-left:auto;border:0;background:none;color:var(--muted);font-size:12px;text-decoration:underline}
+.linkbtn:hover{color:var(--ink-strong)}
+.searchfloat{position:fixed;z-index:50;top:14px;left:50%;transform:translateX(-50%);width:min(560px,92vw);display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--accent);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.22);padding:10px 14px;color:var(--muted)}
+.searchfloat[hidden]{display:none}
+.searchfloat input::-webkit-search-cancel-button{display:none}
+.searchfloat input{flex:1;border:0;background:none;font-size:16px;padding:4px 0;color:var(--ink-strong);outline:none}
+.sfhint{font-size:11px;white-space:nowrap}
+@media (max-width:900px){.bar h1{font-size:16px}.bar .summary{order:3;flex-basis:100%;flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start}.sfhint{display:none}.popbox{width:min(300px,90vw)}}
+.notebox{display:flex;flex-direction:column;gap:6px}
+.notehead{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted)}
+.notebox textarea{min-height:0;font-size:13.5px;line-height:1.6;color:var(--ink-strong);background:var(--panel)}
+.notelinks{display:flex;flex-direction:column;gap:2px;font-size:12px}
+.notelinks a{color:var(--accent);overflow-wrap:anywhere}
+.kb{font-family:var(--f-num);font-size:10px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted);font-weight:500;margin-left:2px;line-height:1.5}
+.tbtn.on .kb{border-color:var(--accent)}
+#pjlabel{overflow:hidden;text-overflow:ellipsis}
+@media (max-width:900px){.kb{display:none}}
+.child .child .row{padding-left:74px}
+.child .child .detail{padding-left:134px}
+.child .child .name{font-size:13.5px}
+.child.haskids>.row .name{color:var(--ink);font-weight:500}
+@media (max-width:900px){.child .child .row{padding-left:44px}.child .child .detail{padding-left:12px}}
+.idbtn{opacity:0;border:1px solid var(--line);background:var(--panel);border-radius:5px;padding:0 6px;margin-left:8px;font-family:var(--f-num);font-size:10.5px;color:var(--muted);vertical-align:2px;line-height:1.6}
+.row:hover .idbtn,.idbtn:focus-visible,.idbtn.shown{opacity:1}
+.idbtn:hover{color:var(--ink-strong);border-color:var(--accent)}
+@media (hover:none){.idbtn{opacity:.55}}
+.nmemo dt{font-size:12px;color:var(--muted);margin-top:6px}
+.nmemo dd{margin:2px 0 0;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.card[hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="topbar" id="topbar"><div class="topin">
+  <div class="bar">
+    <h1 id="apptitle">タスクページ</h1>
+    <div class="right">
+      <button type="button" class="tbtn" id="searchbtn" title="検索（⌘K）" aria-label="タスクを検索"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span id="qchip"></span><kbd class="kb">⌘K</kbd></button>
+      <div class="pop">
+        <button type="button" class="tbtn" id="pjbtn" aria-haspopup="true" aria-expanded="false"><span id="pjlabel">プロジェクト</span><kbd class="kb">⌘J</kbd></button>
+        <div class="popbox" id="pjpop" hidden>
+          <input type="text" id="pjfilter" placeholder="プロジェクトを探す（⌘J）" autocomplete="off" aria-label="プロジェクトを探す">
+          <ul id="pjlist" role="listbox" aria-multiselectable="true"></ul>
+          <div class="popfoot">
+            <button type="button" class="tbtn small" id="pjall">すべてチェック</button>
+            <button type="button" class="tbtn small" id="pjnone">すべて外す</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="summary" id="summary"></div>
+  </div>
+  <div class="notice" id="notice" hidden></div>
+</div></div>
+<div class="searchfloat" id="searchfloat" hidden>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+  <input type="search" id="q" placeholder="タスクを検索（⌘K）" aria-label="タスクを検索" autocomplete="off">
+  <span class="sfhint">Enter で閉じる・esc で消す</span>
+</div>
+<div class="wrap">
+  <div class="maincol">
+    <div class="listbar"><span class="glabel">並び</span><div class="seg mini" id="sortseg"></div></div>
+    <main id="list"><div class="empty">読み込み中…</div></main>
+  </div>
+  <aside>
+    <div class="keys"><kbd>1</kbd>–<kbd>6</kbd> 日以内　<kbd>w</kbd> 1週間　<kbd>0</kbd> 期限切れ　<kbd>t</kbd> 今日やる　<kbd>a</kbd> すべて　<kbd>p</kbd> プライベート</div>
+    <section class="card">
+      <h3 style="display:flex;justify-content:space-between;align-items:center">チャットで変更・追加<button class="btn small" id="chatclose" type="button">閉じる</button></h3>
+      <div class="chatlog" id="chatlog"></div>
+      <form id="chatform" class="actions" style="flex-direction:column;align-items:stretch">
+        <textarea id="chatin" placeholder="「c」キーでここに入力&#10;追加・完了・変更をまとめて頼めます" aria-label="変更の依頼"></textarea>
+        <button class="btn primary" type="submit" id="chatsend">送信 <span class="sendkey">⌘Enter</span></button>
+      </form>
+    </section>
+    <section class="card">
+      <h3>さっきの変更</h3>
+      <ul class="pending" id="history"></ul>
+      <div class="foot">変更はその場で保存されます。間違えたら「元に戻す」か ⌘Z で戻せます。</div>
+    </section>
+    <section class="card" id="nmemocard" hidden>
+      <h3>今日の日報メモ</h3>
+      <dl class="nmemo" id="nmemo"></dl>
+      <div class="foot">毎晩0:05の日報に自動で入ります。</div>
+    </section>
+    <section class="card" id="memocard" hidden>
+      <h3>案件メモ</h3>
+      <ul class="pending memolist" id="memolist"></ul>
+    </section>
+  </aside>
+</div>
+<button id="chatfab" type="button">チャットで変更・追加</button>
+
+<script>
+/* =====================================================================
+   設定（ここだけ自分用に書き換える）
+   - projectNames : プロジェクトのタグ名 → 画面の表示名。書かなければ「/」を「｜」にして表示
+   - groups       : まとめて並べたいプロジェクトの塊。prefix（タグ名の先頭）か pjs（タグ名の一覧）で指定。
+                    order を書くと、その順に固定。personal:true の塊は一番下
+   - privatePj    : プライベート（私用）扱いにするプロジェクトのタグ名
+   - ownerName    : チャットで Claude が呼ぶ名前
+   ===================================================================== */
+const CONFIG={
+  title:"タスクページ",
+  ownerName:"あなた",
+  privatePj:"プライベート",
+  projectNames:{
+    "請求":"請求",
+    "取引先A/案件1":"取引先A｜案件1",
+    "取引先A/案件2":"取引先A｜案件2",
+    "自社事業/全体":"自社事業｜全体",
+    "自社事業/採用":"自社事業｜採用",
+    "プライベート":"プライベート",
+    "未設定":"プロジェクト未設定"
+  },
+  groups:[
+    {name:"取引先A", pjs:["取引先A/案件1","取引先A/案件2"], order:["取引先A/案件1","取引先A/案件2"]},
+    {name:"自社事業", prefix:"自社事業/"},
+    {name:"個人", pjs:["個人タスク","プライベート"], order:["個人タスク","プライベート"], personal:true}
+  ]
+};
+document.title=CONFIG.title;
+document.getElementById("apptitle").textContent=CONFIG.title;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const linkify=s=>esc(s).replace(/https?:\/\/[^\s<]+/g,u=>`<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+const WD="日月火水木金土";
+
+let db=null, sample=null, loaded=false;
+let tasks=new Map();            // id -> data（データベースの中身そのまま）
+let numberMap=new Map();        // 表示番号 -> id
+let justClosed=new Set();       // このページで閉じたもの（線を引いて残す）
+let history=[];                 // 元に戻す用
+let view={q:"",pjs:new Set(),priv:"all",filter:"",open:new Set(),sort:"group"};
+let settings={names:{},order:[]}, catOrder=[], renaming="", chatHistory=[];
+try{view.sort=localStorage.getItem("sort")||"group"}catch(_){}
+
+/* ---------- 日付 ---------- */
+function today(){const d=new Date();d.setHours(0,0,0,0);return d}
+function mdToDate(md){
+  const f=String(md||"").match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/); if(f) return new Date(+f[1],+f[2]-1,+f[3]);
+  const m=String(md||"").match(/(\d{1,2})\/(\d{1,2})/); if(!m) return null;
+  const t=today(); let y=t.getFullYear(); const mo=+m[1];
+  if(mo-(t.getMonth()+1)<-6) y++; else if(mo-(t.getMonth()+1)>6) y--;
+  return new Date(y,mo-1,+m[2]);
+}
+const dayDiff=d=>Math.round((d-today())/864e5);
+function markOf(md){const d=mdToDate(md); if(!d) return ""; const n=dayDiff(d); return n<0?"over":n===0?"today":n<=3?"soon":""}
+const isoToMd=v=>{const m=String(v||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return"";const md=`${m[2]}/${m[3]}`;return mdToDate(md).getFullYear()===+m[1]?md:`${m[1]}/${md}`};
+const mdToIso=md=>{const d=mdToDate(md);if(!d)return"";return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
+const mdLabel=md=>{const d=mdToDate(md);if(!d)return md;const s=`${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}（${WD[d.getDay()]}）`;return d.getFullYear()===today().getFullYear()?s:`${d.getFullYear()}/${s}`};
+const normMd=s=>{const f=String(s||"").match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);if(f)return `${f[1]}/${f[2].padStart(2,"0")}/${f[3].padStart(2,"0")}`;const m=String(s||"").match(/(\d{1,2})\/(\d{1,2})/);return m?`${m[1].padStart(2,"0")}/${m[2].padStart(2,"0")}`:""};
+const todayMd=()=>{const t=today();return `${String(t.getMonth()+1).padStart(2,"0")}/${String(t.getDate()).padStart(2,"0")}`};
+
+/* ---------- 表示名と並び ---------- */
+const PJNAME=CONFIG.projectNames;
+const defName=pj=>PJNAME[pj]||String(pj).replace(/_/g," ").replace(/\//g,"｜");
+const pjName=pj=>(settings.names&&settings.names[pj])||defName(pj);
+const groupOf=pj=>CONFIG.groups.find(g=>(g.pjs&&g.pjs.includes(pj))||(g.prefix&&String(pj).startsWith(g.prefix)));
+const clusterOf=t=>{const g=(t.kind==="私用"&&!groupOf(t.pj))?CONFIG.groups.find(x=>x.personal):groupOf(t.pj);return g?(g.personal?"~":"")+g.name:t.pj.split("/")[0]};
+const FIXED=Object.fromEntries(CONFIG.groups.filter(g=>g.order).map(g=>[(g.personal?"~":"")+g.name,g.order]));
+const desc=t=>(t.children||[]).flatMap(c=>[c,...desc(c)]);
+function minDue(list){let best=null;for(const t of list){for(const x of [t,...desc(t)]){if(x.done)continue;const d=mdToDate(x.due);if(d&&(!best||d<best))best=d}}return best}
+const cmpD=(a,b)=>(a?a.getTime():Infinity)-(b?b.getTime():Infinity);
+
+/* ---------- 一覧のもとを作る ---------- */
+function buildModel(closedMode){
+  const v=id=>{const d=tasks.get(id);return {id,name:d.name||"",pj:d.pj||"未設定",kind:d.kind||(d.pj===CONFIG.privatePj?"私用":"仕事"),due:d.due||"",start:d.start||"",rep:d.rep||"",born:d.born||"",from:d.from||"",notes:d.notes||[],links:d.links||[],refs:d.refs||[],extra:d.extra||[],memo:d.memo||"",hold:!!d.hold,seq:d.seq||0,closedAt:d.closedAt||"",closedTs:d.closedTs||0,done:d.status!=="todo"?d.status:"",closeNote:d.closeNote||"",parentId:d.parent||"",children:[]}};
+  const all=[], byId=new Map(), kids=new Map();
+  const shown=id=>{const d=tasks.get(id);return closedMode?d.status!=="todo":(d.status==="todo"||justClosed.has(id))};
+  for(const [id,d] of tasks){ if(d.parent&&tasks.has(d.parent)){ if(!kids.has(d.parent))kids.set(d.parent,[]); kids.get(d.parent).push(id) } }
+  const attach=(node,depth)=>{ for(const cid of (kids.get(node.id)||[])){ if(closedMode||!node.done||justClosed.has(cid)){const c=v(cid);c.parent=node;c.depth=depth+1;node.children.push(c);byId.set(cid,c);attach(c,depth+1)} } node.children.sort((a,b)=>a.seq-b.seq) };
+  for(const [id,d] of tasks){ if(!(d.parent&&tasks.has(d.parent)) && shown(id)){const t=v(id);t.depth=0;all.push(t);byId.set(id,t);attach(t,0)} }
+  all.sort((a,b)=>a.seq-b.seq);
+  return {all,byId};
+}
+
+/* ---------- 描画 ---------- */
+function render(){
+  if(!loaded) return;
+  const closedMode=view.filter==="closed"; const model=buildModel(closedMode); const list=$("#list");
+  const q=view.q.trim().toLowerCase();
+  const match=t=>!q||(t.name+pjName(t.pj)+t.notes.join("")+t.memo).toLowerCase().includes(q)||t.children.some(match);
+  let items=model.all.filter(t=>(view.priv==="all"||(view.priv==="hide")===(t.kind!=="私用"))&&(!view.pjs.size||view.pjs.has(t.pj))&&match(t));
+  const fpass=t=>[t,...desc(t)].filter(x=>!x.done).some(x=>{const d=mdToDate(x.due);return view.filter==="t"?(d&&dayDiff(d)<=0):/^d[1-7]$/.test(view.filter)?(d&&dayDiff(d)<=+view.filter[1]):view.filter==="hold"?x.hold:markOf(x.due)===view.filter});
+  const upMode=view.filter==="up";
+  const upcoming=closedMode?[]:items.filter(t=>!t.done&&t.start&&mdToDate(t.start)>today());
+  items=upMode?[]:items.filter(t=>!upcoming.includes(t));
+  if(view.filter&&!closedMode&&!upMode) items=items.filter(fpass);
+
+  numberMap=new Map(); let n=0;
+  const row=(t,isChild,showPj)=>{
+    const no=t.done?"":++n; if(no) numberMap.set(no,t.id);
+    const own=t.done?"":markOf(t.due);
+    const RANK={over:3,today:2,soon:1}; let mk=own; if(!t.done){for(const c of desc(t)){const m=c.done?"":markOf(c.due);if((RANK[m]||0)>(RANK[mk]||0))mk=m}}
+    const open=view.open.has(t.id);
+    const kids=t.children.length?`<ul>${t.children.map(c=>row(c,true)).join("")}</ul>`:"";
+    return `<li class="task ${isChild?"child":"parent"} ${t.children.length?"haskids":""} ${t.done?"done":""} ${own==="over"||own==="today"||(t.children.length&&(mk==="over"||mk==="today"))?"m-over":""}" data-id="${esc(t.id)}">
+      <div class="row">
+        <span class="no">${no}</span>
+        <input type="checkbox" class="chk" data-act="toggle" ${t.done?"checked":""} aria-label="${esc(t.name)} を完了にする">
+        <div><button type="button" class="name" data-act="open" aria-expanded="${open}">${mk?`<span class="dot ${mk}" role="img" aria-label="${{over:"期限切れ",today:"今日まで",soon:"3日以内"}[mk]}" title="${{over:"期限切れ",today:"今日まで",soon:"3日以内"}[mk]}"></span>`:""}${esc(t.name)}</button>${t.rep?`<span class="tag">🔁${esc(t.rep)}</span>`:""}${t.hold?`<span class="tag">⏸ 保留</span>`:""}${t.done==="cancel"&&!closedMode?`<span class="tag">取消</span>`:""}${t.done&&t.closeNote&&closedMode?`<span class="tag">${esc(t.closeNote)}</span>`:""}${showPj?`<span class="tag">${esc(pjName(t.pj))}</span>`:""}<button type="button" class="idbtn" data-act="copyid" title="IDをコピー（${esc(t.id)}）" aria-label="IDをコピー">ID</button></div>
+        <span class="due ${own}">${t.done&&closedMode?esc((t.done==="cancel"?"取消 ":"完了 ")+t.closedAt+(t.closedTs?" "+new Date(t.closedTs).toTimeString().slice(0,5):"")):t.due?esc(mdLabel(t.due)):""}</span>
+      </div>
+      ${open?detail(t,isChild,model,t.depth||0):""}
+      ${kids}
+    </li>`;
+  };
+  const sortTs=ts=>{ts.sort((a,b)=>cmpD(minDue([a]),minDue([b]))||a.seq-b.seq);const sk=c=>{c.sort((a,b)=>cmpD(minDue([a]),minDue([b]))||a.seq-b.seq);c.forEach(x=>sk(x.children))};for(const t of ts)sk(t.children);return ts};
+  let html="";
+  if(closedMode){
+    const key=t=>t.closedTs||((mdToDate(t.closedAt)||new Date(0)).getTime());
+    const ts=items.slice().sort((a,b)=>key(b)-key(a)||b.seq-a.seq); catOrder=[];
+    if(ts.length) html=`<div class="cat"><h2><span>完了・取消（直近14日・新しい順）</span></h2><ul>${ts.map(t=>row(t,false,true)).join("")}</ul></div>`;
+  } else if(view.sort==="due"){
+    const ts=sortTs(items.slice()); catOrder=[];
+    if(ts.length) html=`<div class="cat"><h2><span>期限が近い順</span></h2><ul>${ts.map(t=>row(t,false,true)).join("")}</ul></div>`;
+  } else {
+    const cats=new Map();
+    for(const t of items){if(!cats.has(t.pj))cats.set(t.pj,[]);cats.get(t.pj).push(t)}
+    const clusters=new Map();
+    for(const [pj,ts] of cats){const c=clusterOf(ts[0]); if(!clusters.has(c))clusters.set(c,[]); clusters.get(c).push({pj,ts,cl:c,min:minDue(ts)})}
+    let flat=[...clusters].map(([name,cs])=>{
+      if(FIXED[name]) cs.sort((a,b)=>FIXED[name].indexOf(a.pj)-FIXED[name].indexOf(b.pj)); else cs.sort((a,b)=>cmpD(a.min,b.min));
+      return {name,cs,min:minDue(cs.flatMap(c=>c.ts))};
+    }).sort((a,b)=>(a.name[0]==="~")-(b.name[0]==="~")||cmpD(a.min,b.min)).flatMap(c=>c.cs);
+    const ord=settings.order||[];
+    if(ord.length){flat=flat.map((c,i)=>({c,k:ord.includes(c.pj)?ord.indexOf(c.pj):1000+i})).sort((a,b)=>a.k-b.k).map(x=>x.c)}
+    catOrder=flat.map(c=>c.pj);
+    const groups=[]; for(const c of flat){const g=groups[groups.length-1]; if(g&&g.cl===c.cl) g.cs.push(c); else groups.push({cl:c.cl,cs:[c]})}
+    for(const g of groups){
+      const multi=g.cs.length>1;
+      html+=`<section class="cluster ${multi?"multi":""}">${multi?`<div class="cluster-label">${esc(g.cl.replace("~",""))}</div>`:""}`;
+      for(const c of g.cs){
+        sortTs(c.ts); const i=catOrder.indexOf(c.pj);
+        const title=renaming===c.pj?`<input class="catinput" id="catinput" value="${esc(pjName(c.pj))}" data-pj="${esc(c.pj)}" aria-label="カテゴリ名">`:`<button type="button" class="catname" data-rename="${esc(c.pj)}" title="押すと名前を変えられます">${esc(pjName(c.pj))}</button>`;
+        html+=`<div class="cat"><h2>${title}<span class="catctl"><button type="button" data-move="-1" data-pj="${esc(c.pj)}" ${i===0?"disabled":""} aria-label="上へ">↑</button><button type="button" data-move="1" data-pj="${esc(c.pj)}" ${i===catOrder.length-1?"disabled":""} aria-label="下へ">↓</button></span></h2><ul>${c.ts.map(t=>row(t,false)).join("")}</ul></div>`;
+      }
+      html+=`</section>`;
+    }
+  }
+  if(upMode&&upcoming.length){
+    upcoming.sort((a,b)=>mdToDate(a.start)-mdToDate(b.start)||cmpD(mdToDate(a.due),mdToDate(b.due))||a.seq-b.seq);
+    const groups=new Map();
+    for(const u of upcoming){const d=mdToDate(u.start),k=`${d.getFullYear()}年${d.getMonth()+1}月から`;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(u)}
+    const upRow=(t,label)=>`<li class="task ${label?"child":"parent"}" data-id="${esc(t.id)}"><div class="row"><span class="no"></span><span></span><div><button type="button" class="name" data-act="open" aria-expanded="${view.open.has(t.id)}">${esc(label||t.name)}</button>${!label&&t.rep?`<span class="tag">🔁${esc(t.rep)}</span>`:""}${label?"":`<span class="tag">${esc(pjName(t.pj))}</span>`}</div><span class="due">${label?"":esc(mdLabel(t.start))+"〜"}${t.due?"　期限 "+esc(mdLabel(t.due)):""}</span></div>${view.open.has(t.id)?detail(t,!!label):""}${!label&&t.children.length?`<ul>${t.children.map(c=>`<li class="task child"><div class="row"><span class="no"></span><span></span><div><span class="name">${esc(c.name)}</span></div><span class="due">${c.due?esc(mdLabel(c.due)):""}</span></div></li>`).join("")}</ul>`:""}</li>`;
+    for(const [k,us] of groups){
+      const bundles=new Map();
+      for(const u of us){const bk=[u.name,u.start,u.due,u.rep,u.kind].join("|");if(!bundles.has(bk))bundles.set(bk,[]);bundles.get(bk).push(u)}
+      html+=`<div class="cat"><h2><span>${k}</span></h2><ul>${[...bundles].map(([bk,bs])=>{
+        if(bs.length===1) return upRow(bs[0]);
+        const gk="g:"+bk, open=view.open.has(gk), f=bs[0];
+        return `<li class="task parent bundle" data-gkey="${esc(gk)}"><div class="row"><span class="no"></span><span></span><div><button type="button" class="name" data-act="gopen" aria-expanded="${open}">${esc(f.name)}</button>${f.rep?`<span class="tag">🔁${esc(f.rep)}</span>`:""}<span class="tag">${bs.length}案件</span><div class="pjline">${bs.map(x=>esc(pjName(x.pj))).join("、")}</div></div><span class="due">${esc(mdLabel(f.start))}〜${f.due?"　期限 "+esc(mdLabel(f.due)):""}</span></div>${open?`<ul>${bs.map(x=>upRow(x,pjName(x.pj))).join("")}</ul>`:""}</li>`;
+      }).join("")}</ul></div>`;
+    }
+  }
+  if(!html) html=`<div class="empty">${tasks.size?"条件に合うタスクはありません。":"タスクがまだありません。右のチャットで追加できます。"}</div>`;
+  // 入力途中の文字を保つ
+  const act=document.activeElement, keep=act&&list.contains(act)&&act.dataset.act&&(act.type==="text"||act.tagName==="TEXTAREA")?{id:act.closest(".task")?.dataset.id,act:act.dataset.act,val:act.value}:null;
+  list.innerHTML=html;
+  if(keep){const el=list.querySelector(`.task[data-id="${CSS.escape(keep.id||"")}"] [data-act="${keep.act}"]`);if(el){el.value=keep.val;el.focus()}}
+  renderSummary(); fillSelects(model);
+}
+function allPjs(){return [...new Set([...[...tasks.values()].filter(d=>d.status==="todo").map(d=>d.pj||"未設定"),CONFIG.privatePj])].sort((a,b)=>pjName(a).localeCompare(pjName(b),"ja"))}
+function detail(t,isChild,model,depth=0){
+  const r=(k,v)=>v?`<dt>${k}</dt><dd>${v}</dd>`:"";
+  const ro=t.done?"disabled":"";
+  return `<div class="detail">
+    <label class="fld">タスク名<input type="text" data-act="rename" value="${esc(t.name)}" ${ro}></label>
+    <div class="actions">
+      ${isChild?"":`<label class="sub">プロジェクト <select data-act="pj" ${ro}>${allPjs().concat(allPjs().includes(t.pj)?[]:[t.pj]).map(p=>`<option value="${esc(p)}" ${p===t.pj?"selected":""}>${esc(pjName(p))}</option>`).join("")}</select></label>`}
+      <label class="sub">期限 <input type="date" data-act="due" value="${esc(mdToIso(t.due))}" ${ro}></label>
+      ${t.due&&!t.done?`<button class="btn small" data-act="nodue" type="button">期限をなくす</button>`:""}
+    </div>
+    <div class="notebox">
+      <div class="notehead"><span>補足</span><button class="btn small" data-act="copy" type="button">内容をコピー</button></div>
+      <textarea data-act="notes" rows="${Math.min(12,Math.max(2,t.notes.join("\n").split("\n").length+1))}" placeholder="補足を書く（1行に1つ）" aria-label="補足" ${ro}>${esc(t.notes.join("\n"))}</textarea>
+      ${(t.notes.join(" ").match(/https?:\/\/[^\s]+/g)||[]).length?`<div class="notelinks">${[...new Set(t.notes.join(" ").match(/https?:\/\/[^\s]+/g))].map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.length>60?u.slice(0,57)+"…":u)}</a>`).join("")}</div>`:""}
+    </div>
+    <dl>${r("開始",esc(t.start))}${r("参照",t.refs.map(esc).join("<br>"))}${r("リンク",t.links.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener">開く</a>`).join(" "))}${r("その他",t.extra.map(linkify).join("<br>"))}</dl>
+    ${t.memo?`<div class="memo">${linkify(t.memo)}</div>`:""}
+    ${t.done?"":`<div class="actions">
+      <button class="btn small" data-act="done" type="button">完了</button>
+      <button class="btn small" data-act="cancel" type="button">取消（不要）</button>
+      <button class="btn small" data-act="hold" type="button">${t.hold?"保留をやめる":"保留にする"}</button>
+    </div>
+    ${depth>=2||t.done?"":`<div class="actions"><input type="text" data-act="childtext" placeholder="子タスクを足す" aria-label="子タスクを足す" style="flex:1;min-width:160px"><button class="btn small" data-act="child" type="button">足す</button></div>`}`}
+  </div>`;
+}
+function renderSummary(){
+  const seg=(attr,val,label,on,extra="")=>`<button type="button" data-${attr}="${val}" aria-pressed="${on}" ${extra}>${label}</button>`;
+  const f=view.filter;
+  $("#summary").innerHTML=
+   `<div class="grp"><span class="glabel">期限</span><div class="seg">${seg("filter","","すべて",!f||f==="hold"||f==="closed"||f==="up",`title="キー a"`)}${seg("filter","over",`<span class="dot over"></span>切れ`,f==="over",`title="キー 0"`)}${seg("filter","t","今日",f==="t",`title="キー t（今日が期限＋期限切れ）"`)}${/^d[1-7]$/.test(f)?seg("filter",f,`${f==="d7"?"1週間以内":f[1]+"日以内"} ×`,true,`title="押すと解除"`):""}</div></div>`+
+   `<div class="grp"><span class="glabel">プライベート</span><div class="seg">${seg("priv","all","含める",view.priv==="all",`title="キー p"`)}${seg("priv","only","プライベートだけ",view.priv==="only",`title="キー p"`)}${seg("priv","hide","仕事だけ",view.priv==="hide",`title="キー p"`)}</div></div>`+
+   `<div class="grp"><div class="seg">${seg("filter","hold","⏸ 保留",f==="hold")}${seg("filter","closed","✓ 完了",f==="closed",`title="完了・取消（直近14日）"`)}${seg("filter","up","🕒 これから",f==="up")}</div></div>`;
+  $("#sortseg").innerHTML=seg("sort","group","プロジェクト別",view.sort==="group")+seg("sort","due","期限順",view.sort==="due");
+}
+
+let selFilled="";
+function fillSelects(){
+  const n=view.pjs.size, b=$("#pjbtn");
+  $("#pjlabel").textContent=!n?"プロジェクト":n===1?pjName([...view.pjs][0]):`プロジェクト ${n}件`;
+  b.classList.toggle("on",n>0);
+  const q=view.q.trim(); $("#qchip").innerHTML=q?`<span class="qtext">${esc(q)}</span><span class="qx" data-qclear aria-label="検索を消す">×</span>`:"";
+  $("#searchbtn").classList.toggle("on",!!q);
+}
+let pjActive=0, pjShown=[];
+function pjRender(){
+  const q=$("#pjfilter").value.trim().toLowerCase();
+  pjShown=allPjs().filter(p=>!q||(pjName(p)+" "+p).toLowerCase().includes(q));
+  pjActive=Math.min(pjActive,Math.max(0,pjShown.length-1));
+  const filtered=!!q&&pjShown.length>0;
+  $("#pjall").textContent=filtered?`この${pjShown.length}件をチェック`:"すべてチェック";
+  $("#pjnone").textContent=filtered?`この${pjShown.length}件を外す`:"すべて外す";
+  $("#pjall").disabled=!pjShown.length||pjShown.every(p=>view.pjs.has(p));
+  $("#pjnone").disabled=!pjShown.some(p=>view.pjs.has(p));
+  $("#pjlist").innerHTML=pjShown.length?pjShown.map((p,i)=>`<li role="option" data-i="${i}" aria-selected="${view.pjs.has(p)}" class="${i===pjActive?"act":""}"><span class="cbox">${view.pjs.has(p)?"✓":""}</span>${esc(pjName(p))}</li>`).join(""):`<li class="none">見つかりません</li>`;
+}
+function pjOpen(){ $("#pjpop").hidden=false; $("#pjbtn").setAttribute("aria-expanded","true"); $("#pjfilter").value=""; pjActive=0; pjRender(); $("#pjfilter").focus() }
+function pjClose(){ if($("#pjpop").hidden) return; $("#pjpop").hidden=true; $("#pjbtn").setAttribute("aria-expanded","false"); if(document.activeElement&&$("#pjpop").contains(document.activeElement)) document.activeElement.blur() }
+function pjToggle(p){ if(!p) return; view.pjs.has(p)?view.pjs.delete(p):view.pjs.add(p); pjRender(); render() }
+$("#pjbtn").addEventListener("click",()=>$("#pjpop").hidden?pjOpen():pjClose());
+$("#pjfilter").addEventListener("input",()=>{pjActive=0;pjRender()});
+$("#pjfilter").addEventListener("keydown",e=>{
+  if(e.isComposing) return;
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();const n=Math.max(1,pjShown.length);pjActive=(pjActive+(e.key==="ArrowDown"?1:-1)+n)%n;pjRender()}
+  else if(e.key==="Enter"){e.preventDefault();pjToggle(pjShown[pjActive])}
+  else if(e.key==="Escape"){e.preventDefault();e.stopPropagation();pjClose()}
+});
+$("#pjlist").addEventListener("mousedown",e=>{e.preventDefault();const li=e.target.closest("[data-i]");if(li){pjActive=+li.dataset.i;pjToggle(pjShown[pjActive])}});
+$("#pjall").addEventListener("click",()=>{pjShown.forEach(p=>view.pjs.add(p));pjRender();render()});
+$("#pjnone").addEventListener("click",()=>{pjShown.forEach(p=>view.pjs.delete(p));pjRender();render()});
+document.addEventListener("mousedown",e=>{ if(!$("#pjpop").hidden&&!e.target.closest(".pop")) pjClose(); if(!$("#searchfloat").hidden&&!e.target.closest("#searchfloat,#searchbtn")) closeSearch(false) });
+function openSearch(){ pjClose(); $("#searchfloat").hidden=false; $("#q").value=view.q; $("#q").focus(); $("#q").select() }
+function closeSearch(clear){ if(clear){view.q="";$("#q").value="";render()} $("#searchfloat").hidden=true; if(document.activeElement===$("#q")) $("#q").blur(); fillSelects() }
+$("#searchbtn").addEventListener("click",e=>{ if(e.target.closest("[data-qclear]")){view.q="";render();return} $("#searchfloat").hidden?openSearch():closeSearch(false) });
+$("#q").addEventListener("keydown",e=>{ if(e.isComposing) return; if(e.key==="Enter"){e.preventDefault();closeSearch(false)} else if(e.key==="Escape"){e.preventDefault();e.stopPropagation();closeSearch(true)} });
+function renderHistory(){
+  $("#history").innerHTML=history.length?history.slice(0,12).map((h,i)=>`<li><span>${esc(h.label)}</span>${h.undone?`<span class="sub">戻しました</span>`:`<button class="x" type="button" data-undo="${i}">元に戻す</button>`}</li>`).join(""):`<li class="sub">まだありません</li>`;
+}
+
+/* ---------- 保存 ---------- */
+function notice(msg,btn){const n=$("#notice");if(!msg){n.hidden=true;return}n.hidden=false;n.innerHTML=`<span>${msg}</span>`}
+function saveErr(e){notice(e&&e.code==="quota_exceeded"?"保存できる件数がいっぱいです。Claude に古いタスクの整理を頼んでください。":"保存できませんでした（"+esc((e&&e.code)||"不明")+"）。少し待ってもう一度試してください。")}
+// writes: [{id, data|null}]  data=null は削除
+async function commit(label,writes){
+  if(!db){notice("保存できません。claude.ai にサインインした状態で開いてください。");return false}
+  const undo=writes.map(w=>({id:w.id,data:tasks.has(w.id)?JSON.parse(JSON.stringify(tasks.get(w.id))):null}));
+  try{
+    for(const w of writes){ if(w.data) await db.doc("tasks/"+w.id).set(w.data); else await db.doc("tasks/"+w.id).delete() }
+    history.unshift({label,undo}); renderHistory(); notice(""); return true;
+  }catch(e){saveErr(e);return false}
+}
+const cur=id=>JSON.parse(JSON.stringify(tasks.get(id)));
+const kidsOf=id=>[...tasks].filter(([k,d])=>d.parent===id).map(([k])=>k);
+const descOf=id=>kidsOf(id).flatMap(k=>[k,...descOf(k)]);
+const depthOf=id=>{let n=0,d=tasks.get(id);while(d&&d.parent&&tasks.has(d.parent)&&n<10){n++;d=tasks.get(d.parent)}return n};
+const heightOf=id=>{const k=kidsOf(id);return k.length?1+Math.max(...k.map(heightOf)):0};
+function closeWrites(id,type,note){
+  const ids=[id,...descOf(id).filter(k=>tasks.get(k).status==="todo")];
+  return ids.map(k=>{const d=cur(k);d.status=type;d.closedAt=todayMd();d.closedTs=Date.now();if(note)d.closeNote=note;delete d.hold;justClosed.add(k);return {id:k,data:d}});
+}
+const A={
+  close:(id,type,note)=>{
+    const w=closeWrites(id,type,note), d=tasks.get(id);
+    if(type==="done"&&d.rep==="年次"&&!d.parent&&mdToDate(d.due)){
+      // 年次：完了したら翌年分を作る（子も一緒に）。取消なら繰り返しをやめる
+      const plus=s=>{const x=mdToDate(s);if(!x)return"";return `${x.getFullYear()+1}/${String(x.getMonth()+1).padStart(2,"0")}/${String(x.getDate()).padStart(2,"0")}`};
+      const fresh=(src,extra)=>{const n=JSON.parse(JSON.stringify(src));n.status="todo";if(src.due)n.due=plus(src.due);if(src.start)n.start=plus(src.start);n.born=todayMd();delete n.closedAt;delete n.closedTs;delete n.closeNote;delete n.hold;n.notes=(n.notes||[]).filter(x=>/毎年/.test(x));if(!n.notes.length)delete n.notes;return Object.assign(n,extra)};
+      const base="t"+Date.now().toString(36), now=Date.now();
+      w.push({id:base+"y",data:fresh(d,{seq:now})});
+      kidsOf(id).sort((x,y)=>(tasks.get(x).seq||0)-(tasks.get(y).seq||0)).forEach((k,i)=>w.push({id:base+"y"+i,data:fresh(tasks.get(k),{parent:base+"y",seq:now+1+i})}));
+    }
+    return commit(`${type==="done"?"完了":"取消"}：${d.name}`,w);
+  },
+  reopen:id=>{const p=tasks.get(id);const ids=[id,...descOf(id).filter(k=>justClosed.has(k)||(tasks.get(k).status!=="todo"&&tasks.get(k).closedAt===p.closedAt))];return commit(`未完了に戻す：${p.name}`,ids.map(k=>{const d=cur(k);d.status="todo";delete d.closedAt;delete d.closedTs;delete d.closeNote;justClosed.delete(k);return {id:k,data:d}}))},
+  due:(id,md)=>{const d=cur(id);if(md)d.due=md;else delete d.due;return commit(`期限${md?"→"+md:"なし"}：${d.name}`,[{id,data:d}])},
+  rename:(id,name)=>{const d=cur(id);const old=d.name;d.name=name;return commit(`名前変更：${old} → ${name}`,[{id,data:d}])},
+  pj:(id,pj)=>{const kind=pj===CONFIG.privatePj?"私用":"仕事";return commit(`移動：${tasks.get(id).name} → ${pjName(pj)}`,[id,...descOf(id)].map(k=>{const d=cur(k);d.pj=pj;d.kind=kind;return {id:k,data:d}}))},
+  hold:(id,on)=>{const d=cur(id);if(on)d.hold=true;else delete d.hold;return commit(`${on?"保留":"保留をやめる"}：${d.name}`,[{id,data:d}])},
+  setParent:(id,pid)=>{
+    if(pid){ if(pid===id||descOf(id).includes(pid)) return Promise.reject(new Error("自分の下には移せません"));
+      if(depthOf(pid)+1+heightOf(id)>2) return Promise.reject(new Error("3階層までです（移すと4階層になります）")) }
+    const par=pid?tasks.get(pid):null; const d0=tasks.get(id);
+    const ws=[id,...descOf(id)].map(k=>{const d=cur(k); if(k===id){ if(pid) d.parent=pid; else delete d.parent } if(par){d.pj=par.pj;d.kind=par.kind||(par.pj===CONFIG.privatePj?"私用":"仕事")} return {id:k,data:d}});
+    return commit(pid?`移動：${d0.name} → ${par.name} の下`:`親から外す：${d0.name}`,ws);
+  },
+  notes:(id,arr)=>{const d=cur(id);if(arr.length)d.notes=arr;else delete d.notes;return commit(`補足を編集：${d.name}`,[{id,data:d}])},
+  note:(id,text)=>{const d=cur(id);d.notes=[...(d.notes||[]),`${todayMd()}: ${text}`];return commit(`補足：${d.name}`,[{id,data:d}])},
+  add:(name,pj,due,parentId,note)=>{
+    const par=parentId&&tasks.get(parentId); if(par) pj=par.pj;
+    const id="t"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    const d={name,pj:pj||"未設定",kind:pj===CONFIG.privatePj?"私用":"仕事",status:"todo",born:todayMd(),from:"タスクページ",seq:Date.now()};
+    if(due)d.due=due; if(par)d.parent=parentId; if(note)d.notes=[`${todayMd()}: ${note}`];
+    return commit(`追加：${name}${due?`（${due}）`:""}`,[{id,data:d}]).then(ok=>ok?id:false);
+  },
+};
+const FIELDJP={good:"がんばったこと",insight:"感想・発見・成長",struggle:"苦しみ・つまづき",tomorrow:"明日への意気込み"};
+const todayIso=()=>{const t=today();return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`};
+async function saveMemo(date,field,text){
+  if(!db) throw new Error("保存できません");
+  const ref=db.doc("nippou/"+date); const s=await ref.get(); const prev=s.exists?JSON.parse(JSON.stringify(s.data())):null;
+  const next=Object.assign({date},prev||{}); next[field]=[...((prev&&prev[field])||[]),text]; next.updatedAt=Date.now();
+  await ref.set(next);
+  history.unshift({label:`日報メモ：${FIELDJP[field]}（${date.slice(5).replace("-","/")}）`,undo:[{path:"nippou/"+date,data:prev}]}); renderHistory();
+}
+async function undoAt(i){
+  const h=history[i]; if(!h||h.undone) return;
+  try{for(const u of h.undo){ if(u.path){ if(u.data) await db.doc(u.path).set(u.data); else await db.doc(u.path).delete(); continue } if(u.data){await db.doc("tasks/"+u.id).set(u.data); if(u.data.status==="todo")justClosed.delete(u.id)} else await db.doc("tasks/"+u.id).delete() } h.undone=true; renderHistory()}catch(e){saveErr(e)}
+}
+
+/* ---------- 一覧の操作 ---------- */
+$("#list").addEventListener("click",async e=>{
+  if(e.target.closest("[data-fold]")){view.upOpen=!view.upOpen;render();return}
+  const rn=e.target.closest("[data-rename]"); if(rn){renaming=rn.dataset.rename;render();const i=$("#catinput");if(i){i.focus();i.select()}return}
+  const mv=e.target.closest("[data-move]"); if(mv){await moveCat(mv.dataset.pj,+mv.dataset.move);return}
+  const el=e.target.closest("[data-act]"); if(!el) return;
+  if(el.dataset.act==="gopen"){const g=el.closest("[data-gkey]").dataset.gkey;view.open.has(g)?view.open.delete(g):view.open.add(g);render();return}
+  const li=el.closest(".task"); const id=li?.dataset.id; if(!tasks.has(id)) return;
+  const a=el.dataset.act, d=tasks.get(id);
+  if(a==="copyid"){let ok=false;try{await navigator.clipboard.writeText(id);ok=true}catch(_){const ta=document.createElement("textarea");ta.value=id;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{ok=document.execCommand("copy")}catch(__){}ta.remove()}el.textContent=ok?"✓ "+id:"失敗";el.classList.add("shown");setTimeout(()=>{if(el.isConnected){el.textContent="ID";el.classList.remove("shown")}},1400);return}
+  if(a==="open"){view.open.has(id)?view.open.delete(id):view.open.add(id);render();return}
+  if(a==="toggle"){ if(d.status==="todo") await A.close(id,"done"); else await A.reopen(id); return }
+  if(a==="done"||a==="cancel"){await A.close(id,a);return}
+  if(a==="hold"){await A.hold(id,!d.hold);return}
+  if(a==="copy"){
+    const kids=kidsOf(id).map(k=>tasks.get(k)).filter(c=>c.status==="todo").sort((x,y)=>(x.seq||0)-(y.seq||0));
+    const lines=[`# ${d.name}`,`- プロジェクト: ${pjName(d.pj||"未設定")}`];
+    if(d.due) lines.push(`- 期限: ${mdLabel(d.due)}`);
+    if(d.parent&&tasks.has(d.parent)) lines.push(`- 親タスク: ${tasks.get(d.parent).name}`);
+    if((d.notes||[]).length) lines.push("","## 補足",...d.notes.map(n=>`- ${n}`));
+    if(kids.length) lines.push("","## 子タスク",...kids.map(c=>`- ${c.name}${c.due?`（期限 ${mdLabel(c.due)}）`:""}`));
+    if(d.memo) lines.push("","## メモ原文",d.memo);
+    if((d.links||[]).length) lines.push("","## リンク",...d.links.map(u=>`- ${u}`));
+    const text=lines.join("\n");
+    let ok=false; try{await navigator.clipboard.writeText(text);ok=true}catch(_){
+      const ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{ok=document.execCommand("copy")}catch(__){}ta.remove()}
+    el.textContent=ok?"コピーしました":"コピーできませんでした"; setTimeout(()=>{if(el.isConnected)el.textContent="内容をコピー"},1600); return}
+  if(a==="nodue"){await A.due(id,"");return}
+  if(a==="note"){const inp=li.querySelector('[data-act="notetext"]');const v=inp.value.trim();if(v){inp.value="";await A.note(id,v)}return}
+  if(a==="child"){const inp=li.querySelector('[data-act="childtext"]');const v=inp.value.trim();if(v){inp.value="";await A.add(v,d.pj,"",id)}return}
+});
+$("#list").addEventListener("keydown",e=>{
+  if(e.isComposing||e.keyCode===229) return;
+  if(e.target.id==="catinput"){if(e.key==="Enter"){e.preventDefault();e.target.blur()}if(e.key==="Escape"){renaming="";render()}return}
+  if(e.key!=="Enter") return; const a=e.target.dataset.act;
+  if(a==="rename"){e.preventDefault();e.target.blur()}
+  if(a==="notetext"||a==="childtext"){e.preventDefault();e.target.parentElement.querySelector("button").click()}
+});
+$("#list").addEventListener("focusout",e=>{if(e.target.id==="catinput")saveName(e.target.dataset.pj,e.target.value)});
+$("#list").addEventListener("change",async e=>{
+  const el=e.target, a=el.dataset.act; const id=el.closest(".task")?.dataset.id; if(!tasks.has(id)) return; const d=tasks.get(id);
+  if(a==="due"){const md=isoToMd(el.value); if(md&&md!==d.due) await A.due(id,md)}
+  if(a==="rename"){const v=el.value.trim(); if(v&&v!==d.name) await A.rename(id,v); else el.value=d.name}
+  if(a==="notes"){const arr=el.value.split("\n").map(s=>s.trim()).filter(Boolean); if(JSON.stringify(arr)!==JSON.stringify(d.notes||[])) await A.notes(id,arr)}
+  if(a==="pj"){ if(el.value!==d.pj) await A.pj(id,el.value) }
+});
+async function saveSettings(patch){
+  const next={names:{...(settings.names||{})},order:[...(settings.order||[])],...patch};
+  settings=next; selFilled=""; render();
+  if(!db){notice("設定を保存できません。claude.ai で開いてください。");return}
+  try{await db.doc("settings/view").set(next)}catch(e){saveErr(e)}
+}
+async function saveName(pj,val){
+  if(renaming!==pj) return; renaming="";
+  const v=val.trim(); const names={...(settings.names||{})};
+  if(!v||v===defName(pj)) delete names[pj]; else names[pj]=v;
+  await saveSettings({names});
+}
+async function moveCat(pj,dir){
+  const ord=catOrder.slice(); const i=ord.indexOf(pj), j=i+dir; if(i<0||j<0||j>=ord.length) return;
+  [ord[i],ord[j]]=[ord[j],ord[i]];
+  const rest=(settings.order||[]).filter(p=>!ord.includes(p));
+  await saveSettings({order:[...ord,...rest]});
+}
+$("#history").addEventListener("click",e=>{const b=e.target.closest("[data-undo]");if(b)undoAt(+b.dataset.undo)});
+$("#summary").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return; const d=b.dataset;
+  if("filter" in d){view.filter=view.filter===d.filter?"":d.filter;render()}
+  else if(d.priv) setPriv(d.priv);
+  else if(d.sort){view.sort=d.sort;try{localStorage.setItem("sort",view.sort)}catch(_){};render()}
+});
+document.addEventListener("keydown",e=>{
+  if(e.isComposing) return;
+  const el=document.activeElement, typing=el&&(/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)&&el.type!=="checkbox"||el.isContentEditable);
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){e.preventDefault();openSearch();return}
+  if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==="j"){e.preventDefault();closeSearch(false);$("#pjpop").hidden?pjOpen():pjClose();return}
+  if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==="z"&&!typing){const i=history.findIndex(h=>!h.undone);if(i>=0){e.preventDefault();undoAt(i)}return}
+  if(e.metaKey||e.ctrlKey||e.altKey) return;
+  if(typing){ if(e.key==="Escape"&&el.id!=="catinput"){el.blur();document.body.classList.remove("chat-open")} return }
+  const k=e.key.toLowerCase();
+  if(k==="0"){view.filter="over";render();window.scrollTo(0,0)}
+  else if(k==="t"){view.filter="t";render();window.scrollTo(0,0)}
+  else if(k==="g"){e.preventDefault();pjOpen()}
+  else if(k==="w"){view.filter="d7";render();window.scrollTo(0,0)}
+  else if(/^[1-7]$/.test(k)){view.filter="d"+k;render();window.scrollTo(0,0)}
+  else if(k==="a"){view.filter="";view.q="";view.pjs.clear();$("#q").value="";document.body.classList.remove("chat-open");render()}
+  else if(k==="p"){nextPriv()}
+  else if(k==="c"){e.preventDefault();document.body.classList.add("chat-open");$("#chatin").focus()}
+  else if(k==="/"){e.preventDefault();openSearch()}
+});
+$("#q").addEventListener("input",e=>{view.q=e.target.value;render()});
+document.addEventListener("click",e=>{const b=e.target.closest("[data-sort]");if(b){view.sort=b.dataset.sort;try{localStorage.setItem("sort",view.sort)}catch(_){};render()}});
+const PRIV={all:"すべて",hide:"隠す",only:"のみ"};
+function setPriv(v){view.priv=v;try{localStorage.setItem("priv",v)}catch(_){};render()}
+const nextPriv=()=>setPriv({all:"only",only:"hide",hide:"all"}[view.priv]);
+try{const v=localStorage.getItem("priv");if(PRIV[v])view.priv=v}catch(_){}
+
+$("#chatfab").addEventListener("click",()=>{document.body.classList.add("chat-open");$("#chatin").focus()});
+$("#chatclose").addEventListener("click",()=>document.body.classList.remove("chat-open"));
+try{new ResizeObserver(()=>document.documentElement.style.setProperty("--topbar-h",$("#topbar").offsetHeight+"px")).observe($("#topbar"))}catch(_){}
+
+/* ---------- チャット ---------- */
+function chatTools(nm,log){
+  const pick=no=>{const s=String(no).trim(); if(tasks.has(s)) return s; const id=nm.get(Number(s)); if(!id||!tasks.has(id)) throw new Error(`番号・ID ${s} のタスクはありません`); return id};
+  const ok=async(p,line)=>{if(await p){log.push(line);return {ok:true}} throw new Error("保存に失敗しました")};
+  const pjs=allPjs();
+  const N={type:["integer","string"],description:"一覧の番号、または t で始まるID"}, S={type:"string"};
+  return [
+    {name:"complete_tasks",description:"タスクを完了にする（番号で指定）。親を完了にすると子も完了になる",inputSchema:{type:"object",properties:{numbers:{type:"array",items:N}},required:["numbers"]},
+     execute:async({numbers})=>{for(const n of numbers){const id=pick(n);const nm2=tasks.get(id).name;if(tasks.get(id).status==="todo")await ok(A.close(id,"done"),`完了：${nm2}`)}return {ok:true}}},
+    {name:"cancel_tasks",description:"タスクを取消（不要）にする",inputSchema:{type:"object",properties:{numbers:{type:"array",items:N},reason:S},required:["numbers"]},
+     execute:async({numbers,reason})=>{for(const n of numbers){const id=pick(n);const nm2=tasks.get(id).name;if(tasks.get(id).status==="todo")await ok(A.close(id,"cancel",reason||"不要"),`取消：${nm2}`)}return {ok:true}}},
+    {name:"set_due",description:"期限を変える。due は MM/DD。期限をなくすときは空文字",inputSchema:{type:"object",properties:{number:N,due:S},required:["number","due"]},
+     execute:async({number,due})=>{const id=pick(number);const md=normMd(due);if(due&&!md)throw new Error("due は MM/DD で");return ok(A.due(id,md),`期限${md?"→"+md:"なし"}：${tasks.get(id).name}`)}},
+    {name:"add_task",description:"新しいタスクを追加する（「追加」「入れて」「タスクにして」など）。pj は既存のタグ名から選ぶ: "+pjs.join(", ")+"。私用は "+CONFIG.privatePj+"。どれにも合わない新しい案件なら新しいタグ名（スペースなし）を付ける。due は MM/DD（任意）。子タスクも一緒に作るときは children に入れる（親と子を1回で作れる。番号は要らない）。既存のタスクの下に子を足すときは parent_number。この会話で追加したばかりのタスクの下に足すときは、そのとき返ってきた ref を parent_ref に入れる",inputSchema:{type:"object",properties:{name:S,pj:S,due:S,parent_number:N,parent_ref:S,note:S,children:{type:"array",items:{type:"object",properties:{name:S,due:S,note:S},required:["name"]}}},required:["name","pj"]},
+     execute:async({name,pj,due,parent_number,parent_ref,note,children})=>{
+       const pid=parent_ref&&tasks.has(parent_ref)?parent_ref:parent_number?pick(parent_number):"";
+       if(parent_ref&&!tasks.has(parent_ref)) throw new Error(`ref ${parent_ref} のタスクがありません`);
+       if(pid&&depthOf(pid)>=2) throw new Error("3階層までです。孫の下には追加できません"); const md=normMd(due); const id=await A.add(name,pj,md,pid,note||""); if(!id) throw new Error("保存に失敗しました");
+       log.push(`追加：${name}${md?`（${md}）`:""}`); const made=[];
+       for(const c of (children||[])){const cmd=normMd(c.due);const cid=await A.add(c.name,pj,cmd,id,c.note||"");if(cid){made.push(cid);log.push(`　└ 追加：${c.name}${cmd?`（${cmd}）`:""}`)}}
+       return {ok:true,ref:id,children_refs:made};
+     }},
+    {name:"rename_task",description:"タスクの名前を変える",inputSchema:{type:"object",properties:{number:N,name:S},required:["number","name"]},
+     execute:async({number,name})=>{const id=pick(number);return ok(A.rename(id,name),`名前変更：${name}`)}},
+    {name:"move_task",description:"タスクを別のプロジェクトへ移す（子も一緒に移る）。pj はタグ名: "+pjs.join(", "),inputSchema:{type:"object",properties:{number:N,pj:S},required:["number","pj"]},
+     execute:async({number,pj})=>{const id=pick(number);if(tasks.get(id).parent)throw new Error("子タスクは親と同じプロジェクトです。親を移してください");return ok(A.pj(id,pj),`移動：${tasks.get(id).name} → ${pjName(pj)}`)}},
+    {name:"move_under",description:"タスクを別のタスクの下（子）へ移す。子や孫も一緒に移る。parent_number を 0 にすると親から外して一番上の階層に戻す。3階層（親＞子＞孫）まで",inputSchema:{type:"object",properties:{number:N,parent_number:N},required:["number","parent_number"]},
+     execute:async({number,parent_number})=>{const id=pick(number);const pid=parent_number?pick(parent_number):"";const nm2=tasks.get(id).name;const pn=pid?tasks.get(pid).name:"";return ok(A.setParent(id,pid),pid?`移動：${nm2} → ${pn} の下`:`親から外す：${nm2}`)}},
+    {name:"add_nippou_memo",description:"日報の感想メモを残す（タスクではない）。field: good=がんばったこと, insight=感想・発見・成長, struggle=苦しみ・つまづき, tomorrow=明日への意気込み。text は本人の文章そのまま。date は YYYY-MM-DD（言われなければ今日。深夜0〜4時で日付の指定がなければ聞き返す）。毎晩0:05の日報に自動で入る",inputSchema:{type:"object",properties:{date:S,field:{type:"string",enum:["good","insight","struggle","tomorrow"]},text:S},required:["field","text"]},
+     execute:async({date,field,text})=>{const d=date||todayIso(); if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new Error("date は YYYY-MM-DD で"); if(!text||!text.trim()) throw new Error("text が空です"); await saveMemo(d,field,text); log.push(`日報メモ（${d.slice(5).replace("-","/")} ${FIELDJP[field]}）：${text.length>30?text.slice(0,30)+"…":text}`); return {ok:true}}},
+    {name:"add_note",description:"タスクに補足を足す",inputSchema:{type:"object",properties:{number:N,note:S},required:["number","note"]},
+     execute:async({number,note})=>{const id=pick(number);return ok(A.note(id,note),`補足：${tasks.get(id).name}`)}},
+    {name:"set_hold",description:"タスクを保留にする／保留をやめる",inputSchema:{type:"object",properties:{number:N,hold:{type:"boolean"}},required:["number","hold"]},
+     execute:async({number,hold})=>{const id=pick(number);return ok(A.hold(id,!!hold),`${hold?"保留":"保留をやめる"}：${tasks.get(id).name}`)}},
+  ];
+}
+function addMsg(cls,text){const d=document.createElement("div");d.className="msg "+cls;d.textContent=text;$("#chatlog").appendChild(d);$("#chatlog").scrollTop=1e9;return d}
+$("#chatin").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();$("#chatform").requestSubmit()}});
+$("#chatform").addEventListener("submit",async e=>{
+  e.preventDefault(); const text=$("#chatin").value.trim(); if(!text) return;
+  if(!sample){addMsg("bot","このページからは Claude に頼めない状態です。claude.ai で開いてください。");return}
+  $("#chatin").value=""; addMsg("user",text); const out=addMsg("bot","考えています…"); $("#chatsend").disabled=true;
+  const t=today(); const log=[]; const nm=new Map(numberMap);
+  const ctx=[...nm].map(([no,id])=>{const d=tasks.get(id);return `${no}) [${id}] ${"  ".repeat(Math.max(0,depthOf(id)-1))}${d.parent?"  └ ":""}${d.name}｜${pjName(d.pj)}${d.due?`｜期限 ${d.due}`:""}${d.hold?"｜保留":""}`}).join("\n");
+  const sys=`あなたは${CONFIG.ownerName}のタスク一覧の編集係です。今日は ${t.getFullYear()}/${t.getMonth()+1}/${t.getDate()}（${WD[t.getDay()]}）。
+下の番号つき一覧を見て、依頼をツールで実行します。変更はその場で保存されます。
+- 「火曜」「水曜まで」などの曜日は、今日以降で一番近いその曜日。「明日」「今日」も日付に直す。期限は MM/DD。
+- 「3 済」「5,7 不要」のような短い返事は、番号のタスクの完了・取消。番号の代わりに [ ] 内のID（t で始まる文字列）で指定されたら、そのIDをそのまま使う。
+- 日報の感想（がんばったこと／発見・感想・成長／苦しみ・つまづき／明日への意気込み）はタスクではない。add_nippou_memo で残す。text は本人の文章をそのまま（日付や「発見は」などの指示部分だけ外し、言い回し・句読点は一字も変えない）。項目が決まらないときは聞き返す。
+- 番号は下の一覧のもの。ツールを実行しても番号は変わらない。今回追加したタスクには番号がないので、その下に子を足すときは add_task の children か、返ってきた ref（parent_ref）を使う。番号を推測しない。
+- 依頼の意味が一つに決まらないときは、ツールを使わず短く聞き返す。
+- 返事は日本語で2〜4行。やったことを短く伝える。
+一覧:
+${ctx}`;
+  const prior=chatHistory.slice(-6).map(m=>(m.role==="user"?"本人：":"あなた：")+m.content).join("\n");
+  const msgs=[{role:"user",content:sys+(prior?"\n\nこれまでのやりとり:\n"+prior:"")+"\n\n---\n今回の依頼: "+text}];
+  try{
+    const r=await sample(msgs,{tools:chatTools(nm,log),cache:false,modelTier:"default",onText:({text})=>{out.textContent=text||"考えています…"}});
+    out.textContent=r.text||(log.length?"やりました。":"（返事がありませんでした）");
+    if(log.length) addMsg("hint",log.join("\n"));
+    chatHistory.push({role:"user",content:text},{role:"assistant",content:r.text||log.join("\n")});
+  }catch(err){
+    out.textContent=err.code==="not_granted"?"Claude への依頼が許可されていません。":err.code==="rate_limited"?"混み合っています。少し待ってから送ってください。":"うまくいきませんでした。もう一度送ってください。";
+    if(log.length) addMsg("hint","ここまでは保存済み：\n"+log.join("\n"));
+  }finally{$("#chatsend").disabled=false}
+});
+
+/* ---------- 読み込み ---------- */
+(async()=>{
+  if(!window.claude){notice("このページは claude.ai で開いてください。");return}
+  db=await claude.use("db");
+  if(!db){notice("データを読めません。claude.ai にサインインした状態で開いてください。");$("#list").innerHTML="";return}
+  const timer=setTimeout(()=>{if(!loaded)notice("データの読み込みに時間がかかっています。そのままお待ちください。")},10000);
+  db.doc("settings/view").onSnapshot(s=>{if(s.exists){const d=s.data();settings={names:{...(d.names||{})},order:[...(d.order||[])]};selFilled="";render()}},()=>{});
+  db.doc("nippou/"+todayIso()).onSnapshot(s=>{const d=s.exists?s.data():null;const ks=Object.keys(FIELDJP).filter(k=>d&&(d[k]||[]).length);$("#nmemocard").hidden=!ks.length;$("#nmemo").innerHTML=ks.map(k=>`<dt>${FIELDJP[k]}</dt>${d[k].map(x=>`<dd>${esc(x)}</dd>`).join("")}`).join("")},()=>{});
+  db.doc("meta/info").onSnapshot(s=>{const m=(s.exists&&s.data().caseMemo)||[];$("#memocard").hidden=!m.length;$("#memolist").innerHTML=m.map(x=>`<li>${linkify(x).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>")}</li>`).join("")},()=>{});
+  db.collection("tasks").limit(1000).onSnapshot(s=>{
+    clearTimeout(timer); const m=new Map(); for(const d of s.docs) m.set(d.id,d.data()); tasks=m; loaded=true;
+
+    if(!s.metadata||!s.metadata.fromCache) notice("");
+    render(); renderHistory();
+  },e=>notice("データの読み込みに失敗しました（"+esc(e.code)+"）。ページを開き直してください。"));
+  try{sample=await claude.use("sample")}catch(_){}
+  if(!sample){$("#chatform").hidden=true;addMsg("hint","このページからは Claude に頼めません。claude.ai で開いてください。")}
+})();
+</script>
+</body>
+</html>
