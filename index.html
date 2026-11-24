@@ -223,8 +223,10 @@ aside .keys{margin:0;padding:0 4px;display:block;white-space:normal;line-height:
 .notebox{display:flex;flex-direction:column;gap:6px}
 .notehead{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted)}
 .notebox textarea{min-height:0;font-size:13.5px;line-height:1.6;color:var(--ink-strong);background:var(--panel)}
-.notelinks{display:flex;flex-direction:column;gap:2px;font-size:12px}
-.notelinks a{color:var(--accent);overflow-wrap:anywhere}
+.notelinks{display:flex;flex-direction:column;gap:6px;font-size:12px;margin-top:6px}
+.notelinks .lk{display:flex;flex-direction:column;gap:1px;padding:5px 8px;border-left:3px solid var(--accent-soft);background:var(--bg);border-radius:0 6px 6px 0}
+.notelinks .lt{font-weight:700;color:var(--ink-strong);font-size:12px}
+.notelinks a{color:var(--accent);overflow-wrap:anywhere;word-break:break-all}
 .kb{font-family:var(--f-num);font-size:10px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted);font-weight:500;margin-left:2px;line-height:1.5}
 .tbtn.on .kb{border-color:var(--accent)}
 #pjlabel{overflow:hidden;text-overflow:ellipsis}
@@ -234,6 +236,18 @@ aside .keys{margin:0;padding:0 4px;display:block;white-space:normal;line-height:
 .child .child .name{font-size:13.5px}
 .child.haskids>.row .name{color:var(--ink);font-weight:500}
 @media (max-width:900px){.child .child .row{padding-left:44px}.child .child .detail{padding-left:12px}}
+.cl{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-left:6px;border-radius:5px;vertical-align:-3px;color:#D97757;text-decoration:none}.cl:hover{background:#F6E3DA}.cl svg{width:13px;height:13px}.cl sup{font-size:9px;margin-left:1px;color:var(--muted)}
+.cat h2{cursor:grab}.task>.row{touch-action:manipulation}
+body.dnd,body.dnd *{user-select:none;-webkit-user-select:none;cursor:grabbing!important}
+.no{position:relative}
+.task>.row:hover>.no::before{content:"⠿";position:absolute;left:0;top:0;font-size:14px;line-height:1;color:var(--muted);opacity:.7}
+.task>.row{cursor:grab}.task>.row .name,.task>.row .chk,.task>.row a,.task>.row .idbtn{cursor:pointer}
+.cat h2::before{content:"⠿";position:absolute;left:2px;top:50%;transform:translateY(-50%);color:var(--muted);opacity:0;font-size:13px}.cat h2:hover::before{opacity:.7}
+.dragging{opacity:.55;outline:2px dashed var(--accent);outline-offset:-2px;background:var(--accent-soft)}
+.drop-into>.row,.cat.drop-into>h2{outline:2px solid var(--accent);outline-offset:-2px;background:var(--accent-soft)}
+.cat.drop-before{box-shadow:0 -3px 0 var(--accent)}.cat.drop-after{box-shadow:0 3px 0 var(--accent)}
+#dndghost{position:fixed;z-index:100;pointer-events:none;max-width:300px;padding:7px 12px;border-radius:10px;background:var(--accent);box-shadow:0 10px 28px rgba(0,0,0,.25);font-size:13px;font-weight:700;color:var(--panel);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transform:rotate(-1.5deg)}
+#dndghost small{display:block;font-weight:500;font-size:11.5px;opacity:.92;margin-top:2px}
 .idbtn{opacity:0;border:1px solid var(--line);background:var(--panel);border-radius:5px;padding:0 6px;margin-left:8px;font-family:var(--f-num);font-size:10.5px;color:var(--muted);vertical-align:2px;line-height:1.6}
 .row:hover .idbtn,.idbtn:focus-visible,.idbtn.shown{opacity:1}
 .idbtn:hover{color:var(--ink-strong);border-color:var(--accent)}
@@ -250,9 +264,9 @@ aside .keys{margin:0;padding:0 4px;display:block;white-space:normal;line-height:
     <div class="right">
       <button type="button" class="tbtn" id="searchbtn" title="検索（⌘K）" aria-label="タスクを検索"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span id="qchip"></span><kbd class="kb">⌘K</kbd></button>
       <div class="pop">
-        <button type="button" class="tbtn" id="pjbtn" aria-haspopup="true" aria-expanded="false"><span id="pjlabel">プロジェクト</span><kbd class="kb">⌘J</kbd></button>
+        <button type="button" class="tbtn" id="pjbtn" aria-haspopup="true" aria-expanded="false"><span id="pjlabel">プロジェクト</span><kbd class="kb">⌘E</kbd></button>
         <div class="popbox" id="pjpop" hidden>
-          <input type="text" id="pjfilter" placeholder="プロジェクトを探す（⌘J）" autocomplete="off" aria-label="プロジェクトを探す">
+          <input type="text" id="pjfilter" placeholder="プロジェクトを探す（⌘E）" autocomplete="off" aria-label="プロジェクトを探す">
           <ul id="pjlist" role="listbox" aria-multiselectable="true"></ul>
           <div class="popfoot">
             <button type="button" class="tbtn small" id="pjall">すべてチェック</button>
@@ -334,13 +348,33 @@ const CONFIG={
 document.title=CONFIG.title;
 document.getElementById("apptitle").textContent=CONFIG.title;
 const $=s=>document.querySelector(s);
+const CL_SVG='<svg viewBox="0 0 16 16" aria-hidden="true"><g stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 1.5v13"/><path d="M1.5 8h13"/><path d="M3.4 3.4l9.2 9.2"/><path d="M12.6 3.4l-9.2 9.2"/></g></svg>';
+function linkKind(u){
+  if(/claude\.ai\/chat\//.test(u))return "Claude チャット"; if(/claude\.ai\/share\//.test(u))return "Claude 共有チャット"; if(/claude\.ai\/(artifact|public\/artifacts)\//.test(u))return "Claude アーティファクト";
+  if(/docs\.google\.com\/document/.test(u))return "Googleドキュメント"; if(/docs\.google\.com\/spreadsheets/.test(u))return "Googleスプレッドシート"; if(/docs\.google\.com\/presentation/.test(u))return "Googleスライド"; if(/drive\.google\.com/.test(u))return "Google ドライブ";
+  if(/youtu\.?be/.test(u))return "YouTube"; if(/slack\.com/.test(u))return "Slack"; if(/notion\.(so|site)/.test(u))return "Notion";
+  try{return new URL(u).hostname.replace(/^www\./,"")}catch(_){return "リンク"}
+}
+// タスク内のURLを集める。同じ行のURLの前の文を見出しにする（無ければリンクの種類）
+function taskLinks(t){
+  const out=new Map();
+  const put=(u,label)=>{u=u.replace(/[)）、。」』,]+$/,"");const k=linkKind(u);const lab=(label||"").trim();if(!out.has(u)||(!out.get(u).own&&lab))out.set(u,{url:u,title:lab?`${lab}（${k}）`:k,own:!!lab})};
+  const clean=x=>x.replace(/^\s*\d{1,2}\/\d{1,2}\s*[:：]\s*/,"").replace(/[\s:：／|｜\-–—]+$/,"").replace(/^[\s／|｜・、]+/,"").trim();
+  const scan=text=>{let prev="";for(const line of String(text||"").split("\n")){const re=/https?:\/\/[^\s<>"]+/g;let m,last=0,hit=false;while((m=re.exec(line))){hit=true;let lab=clean(line.slice(last,m.index));if(!lab&&last===0)lab=prev;put(m[0],lab.length>40?lab.slice(0,40)+"…":lab);last=m.index+m[0].length}prev=hit?"":(clean(line)||prev)}};
+  (t.notes||[]).forEach(scan);(t.extra||[]).forEach(scan);scan(t.memo);(t.links||[]).forEach(u=>put(u,""));
+  return [...out.values()];
+}
+function claudeLinks(t){const all=[...(t.links||[]),...(t.notes||[]),...(t.extra||[]),...(t.refs||[])].join(" ");return [...new Set(all.match(/https?:\/\/claude\.ai\/[^\s)"'<>]+/g)||[])]}
+function claudeLink(t){const us=claudeLinks(t);if(!us.length)return "";return `<a class="cl" href="${esc(us[0])}" target="_blank" rel="noopener" title="Claude のチャットを開く${us.length>1?"（ほか"+(us.length-1)+"件は詳細に）":""}" aria-label="Claude のチャットを開く">${CL_SVG}${us.length>1?`<sup>${us.length}</sup>`:""}</a>`}
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const linkify=s=>esc(s).replace(/https?:\/\/[^\s<]+/g,u=>`<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
 const WD="日月火水木金土";
 
 let db=null, sample=null, loaded=false;
 let tasks=new Map();            // id -> data（データベースの中身そのまま）
-let numberMap=new Map();        // 表示番号 -> id
+let numberMap=new Map();        // 表示番号 -> id（いま画面に出ているもの）
+const stableNo=new Map(); let nextNo=1; // id -> 番号。ページを開き直すまで変えない
+const idOfNo=no=>{for(const [id,n] of stableNo) if(n===no) return id; return ""};
 let justClosed=new Set();       // このページで閉じたもの（線を引いて残す）
 let history=[];                 // 元に戻す用
 let view={q:"",pjs:new Set(),priv:"all",filter:"",open:new Set(),sort:"group"};
@@ -394,15 +428,18 @@ function render(){
   const q=view.q.trim().toLowerCase();
   const match=t=>!q||(t.name+pjName(t.pj)+t.notes.join("")+t.memo).toLowerCase().includes(q)||t.children.some(match);
   let items=model.all.filter(t=>(view.priv==="all"||(view.priv==="hide")===(t.kind!=="私用"))&&(!view.pjs.size||view.pjs.has(t.pj))&&match(t));
-  const fpass=t=>[t,...desc(t)].filter(x=>!x.done).some(x=>{const d=mdToDate(x.due);return view.filter==="t"?(d&&dayDiff(d)<=0):/^d[1-7]$/.test(view.filter)?(d&&dayDiff(d)<=+view.filter[1]):view.filter==="hold"?x.hold:markOf(x.due)===view.filter});
+  const selfPass=x=>{if(x.done)return false;const d=mdToDate(x.due);return view.filter==="t"?(d&&dayDiff(d)<=0):/^d[1-7]$/.test(view.filter)?(d&&dayDiff(d)<=+view.filter[1]):view.filter==="hold"?x.hold:markOf(x.due)===view.filter};
+  const fpass=t=>[t,...desc(t)].some(selfPass);
+  // 絞り込み中は、条件に合う子（とその親）だけを残す。親は文脈として出す
+  const prune=t=>{t.children=t.children.filter(c=>justClosed.has(c.id)||fpass(c));t.children.forEach(prune)};
   const upMode=view.filter==="up";
   const upcoming=closedMode?[]:items.filter(t=>!t.done&&t.start&&mdToDate(t.start)>today());
   items=upMode?[]:items.filter(t=>!upcoming.includes(t));
-  if(view.filter&&!closedMode&&!upMode) items=items.filter(fpass);
+  if(view.filter&&!closedMode&&!upMode){ items=items.filter(fpass); items.forEach(prune) }
 
-  numberMap=new Map(); let n=0;
+  numberMap=new Map();
   const row=(t,isChild,showPj)=>{
-    const no=t.done?"":++n; if(no) numberMap.set(no,t.id);
+    let no=""; if(!t.done){ if(!stableNo.has(t.id)) stableNo.set(t.id,nextNo++); no=stableNo.get(t.id); numberMap.set(no,t.id) }
     const own=t.done?"":markOf(t.due);
     const RANK={over:3,today:2,soon:1}; let mk=own; if(!t.done){for(const c of desc(t)){const m=c.done?"":markOf(c.due);if((RANK[m]||0)>(RANK[mk]||0))mk=m}}
     const open=view.open.has(t.id);
@@ -411,7 +448,7 @@ function render(){
       <div class="row">
         <span class="no">${no}</span>
         <input type="checkbox" class="chk" data-act="toggle" ${t.done?"checked":""} aria-label="${esc(t.name)} を完了にする">
-        <div><button type="button" class="name" data-act="open" aria-expanded="${open}">${mk?`<span class="dot ${mk}" role="img" aria-label="${{over:"期限切れ",today:"今日まで",soon:"3日以内"}[mk]}" title="${{over:"期限切れ",today:"今日まで",soon:"3日以内"}[mk]}"></span>`:""}${esc(t.name)}</button>${t.rep?`<span class="tag">🔁${esc(t.rep)}</span>`:""}${t.hold?`<span class="tag">⏸ 保留</span>`:""}${t.done==="cancel"&&!closedMode?`<span class="tag">取消</span>`:""}${t.done&&t.closeNote&&closedMode?`<span class="tag">${esc(t.closeNote)}</span>`:""}${showPj?`<span class="tag">${esc(pjName(t.pj))}</span>`:""}<button type="button" class="idbtn" data-act="copyid" title="IDをコピー（${esc(t.id)}）" aria-label="IDをコピー">ID</button></div>
+        <div><button type="button" class="name" data-act="open" aria-expanded="${open}">${mk?`<span class="dot ${mk}" role="img" aria-label="${{over:"期限切れ",today:"今日まで",soon:"3日以内"}[mk]}" title="${{over:"期限切れ",today:"今日まで",soon:"3日以内"}[mk]}"></span>`:""}${esc(t.name)}</button>${t.rep?`<span class="tag">🔁${esc(t.rep)}</span>`:""}${t.hold?`<span class="tag">⏸ 保留</span>`:""}${t.done==="cancel"&&!closedMode?`<span class="tag">取消</span>`:""}${t.done&&t.closeNote&&closedMode?`<span class="tag">${esc(t.closeNote)}</span>`:""}${showPj?`<span class="tag">${esc(pjName(t.pj))}</span>`:""}${claudeLink(t)}<button type="button" class="idbtn" data-act="copyid" title="IDをコピー（${esc(t.id)}）" aria-label="IDをコピー">ID</button></div>
         <span class="due ${own}">${t.done&&closedMode?esc((t.done==="cancel"?"取消 ":"完了 ")+t.closedAt+(t.closedTs?" "+new Date(t.closedTs).toTimeString().slice(0,5):"")):t.due?esc(mdLabel(t.due)):""}</span>
       </div>
       ${open?detail(t,isChild,model,t.depth||0):""}
@@ -446,7 +483,7 @@ function render(){
       for(const c of g.cs){
         sortTs(c.ts); const i=catOrder.indexOf(c.pj);
         const title=renaming===c.pj?`<input class="catinput" id="catinput" value="${esc(pjName(c.pj))}" data-pj="${esc(c.pj)}" aria-label="カテゴリ名">`:`<button type="button" class="catname" data-rename="${esc(c.pj)}" title="押すと名前を変えられます">${esc(pjName(c.pj))}</button>`;
-        html+=`<div class="cat"><h2>${title}<span class="catctl"><button type="button" data-move="-1" data-pj="${esc(c.pj)}" ${i===0?"disabled":""} aria-label="上へ">↑</button><button type="button" data-move="1" data-pj="${esc(c.pj)}" ${i===catOrder.length-1?"disabled":""} aria-label="下へ">↓</button></span></h2><ul>${c.ts.map(t=>row(t,false)).join("")}</ul></div>`;
+        html+=`<div class="cat" data-pj="${esc(c.pj)}"><h2>${title}<span class="catctl"><button type="button" data-move="-1" data-pj="${esc(c.pj)}" ${i===0?"disabled":""} aria-label="上へ">↑</button><button type="button" data-move="1" data-pj="${esc(c.pj)}" ${i===catOrder.length-1?"disabled":""} aria-label="下へ">↓</button></span></h2><ul>${c.ts.map(t=>row(t,false)).join("")}</ul></div>`;
       }
       html+=`</section>`;
     }
@@ -487,14 +524,15 @@ function detail(t,isChild,model,depth=0){
     <div class="notebox">
       <div class="notehead"><span>補足</span><button class="btn small" data-act="copy" type="button">内容をコピー</button></div>
       <textarea data-act="notes" rows="${Math.min(12,Math.max(2,t.notes.join("\n").split("\n").length+1))}" placeholder="補足を書く（1行に1つ）" aria-label="補足" ${ro}>${esc(t.notes.join("\n"))}</textarea>
-      ${(t.notes.join(" ").match(/https?:\/\/[^\s]+/g)||[]).length?`<div class="notelinks">${[...new Set(t.notes.join(" ").match(/https?:\/\/[^\s]+/g))].map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.length>60?u.slice(0,57)+"…":u)}</a>`).join("")}</div>`:""}
+      ${(()=>{const ls=taskLinks(t);return ls.length?`<div class="notelinks">${ls.map(l=>`<div class="lk"><span class="lt">${esc(l.title)}</span><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.url)}</a></div>`).join("")}</div>`:""})()}
     </div>
-    <dl>${r("開始",esc(t.start))}${r("参照",t.refs.map(esc).join("<br>"))}${r("リンク",t.links.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener">開く</a>`).join(" "))}${r("その他",t.extra.map(linkify).join("<br>"))}</dl>
+    <dl>${r("開始",esc(t.start))}${r("参照",t.refs.map(esc).join("<br>"))}${r("その他",t.extra.map(linkify).join("<br>"))}</dl>
     ${t.memo?`<div class="memo">${linkify(t.memo)}</div>`:""}
     ${t.done?"":`<div class="actions">
       <button class="btn small" data-act="done" type="button">完了</button>
       <button class="btn small" data-act="cancel" type="button">取消（不要）</button>
       <button class="btn small" data-act="hold" type="button">${t.hold?"保留をやめる":"保留にする"}</button>
+      ${t.parentId?`<button class="btn small" data-act="promote" type="button" title="${(tasks.get(t.parentId)||{}).parent?"親タスクと同じ段に上げます":"親から外して、独立したタスクにします"}">${(tasks.get(t.parentId)||{}).parent?"1段上げる":"親タスクにする"}</button>`:""}
     </div>
     ${depth>=2||t.done?"":`<div class="actions"><input type="text" data-act="childtext" placeholder="子タスクを足す" aria-label="子タスクを足す" style="flex:1;min-width:160px"><button class="btn small" data-act="child" type="button">足す</button></div>`}`}
   </div>`;
@@ -556,8 +594,28 @@ function renderHistory(){
 function notice(msg,btn){const n=$("#notice");if(!msg){n.hidden=true;return}n.hidden=false;n.innerHTML=`<span>${msg}</span>`}
 function saveErr(e){notice(e&&e.code==="quota_exceeded"?"保存できる件数がいっぱいです。Claude に古いタスクの整理を頼んでください。":"保存できませんでした（"+esc((e&&e.code)||"不明")+"）。少し待ってもう一度試してください。")}
 // writes: [{id, data|null}]  data=null は削除
+// 親タスクの期限は、未完了の子タスクのうち一番遅い期限まで延ばす（親の方が遅い・子に期限が無いときは触らない）
+function withParentDue(writes){
+  const st=new Map(tasks), out=writes.slice();
+  for(const w of writes) st.set(w.id,w.data);
+  const q=[];
+  for(const w of writes){const b=tasks.get(w.id); if(b&&b.parent) q.push(b.parent); if(w.data&&w.data.parent) q.push(w.data.parent)}
+  let guard=0;
+  while(q.length&&guard++<100){
+    const pid=q.shift(), p=st.get(pid); if(!p||p.status!=="todo") continue;
+    let mx="",mxd=null;
+    for(const [,d] of st){ if(d&&d.parent===pid&&d.status==="todo"){const x=mdToDate(d.due); if(x&&(!mxd||x>mxd)){mxd=x;mx=d.due}} }
+    if(!mx||mx===p.due) continue;
+    const pd=mdToDate(p.due); if(pd&&pd>=mxd) continue; // 親の期限の方が遅ければそのまま（早める方向には動かさない）
+    const nd=JSON.parse(JSON.stringify(p)); nd.due=mx; st.set(pid,nd);
+    const i=out.findIndex(w=>w.id===pid); if(i>=0) out[i]={id:pid,data:nd}; else out.push({id:pid,data:nd});
+    if(nd.parent) q.push(nd.parent);
+  }
+  return out;
+}
 async function commit(label,writes){
   if(!db){notice("保存できません。claude.ai にサインインした状態で開いてください。");return false}
+  writes=withParentDue(writes);
   const undo=writes.map(w=>({id:w.id,data:tasks.has(w.id)?JSON.parse(JSON.stringify(tasks.get(w.id))):null}));
   try{
     for(const w of writes){ if(w.data) await db.doc("tasks/"+w.id).set(w.data); else await db.doc("tasks/"+w.id).delete() }
@@ -591,6 +649,7 @@ const A={
   rename:(id,name)=>{const d=cur(id);const old=d.name;d.name=name;return commit(`名前変更：${old} → ${name}`,[{id,data:d}])},
   pj:(id,pj)=>{const kind=pj===CONFIG.privatePj?"私用":"仕事";return commit(`移動：${tasks.get(id).name} → ${pjName(pj)}`,[id,...descOf(id)].map(k=>{const d=cur(k);d.pj=pj;d.kind=kind;return {id:k,data:d}}))},
   hold:(id,on)=>{const d=cur(id);if(on)d.hold=true;else delete d.hold;return commit(`${on?"保留":"保留をやめる"}：${d.name}`,[{id,data:d}])},
+  moveTo:(id,pj)=>{const kind=pj==="プライベート"?"私用":"仕事";const d0=tasks.get(id);return commit(`移動：${d0.name} → ${pjName(pj)}`,[id,...descOf(id)].map(k=>{const d=cur(k);d.pj=pj;d.kind=kind;if(k===id)delete d.parent;return {id:k,data:d}}))},
   setParent:(id,pid)=>{
     if(pid){ if(pid===id||descOf(id).includes(pid)) return Promise.reject(new Error("自分の下には移せません"));
       if(depthOf(pid)+1+heightOf(id)>2) return Promise.reject(new Error("3階層までです（移すと4階層になります）")) }
@@ -636,6 +695,7 @@ $("#list").addEventListener("click",async e=>{
   if(a==="toggle"){ if(d.status==="todo") await A.close(id,"done"); else await A.reopen(id); return }
   if(a==="done"||a==="cancel"){await A.close(id,a);return}
   if(a==="hold"){await A.hold(id,!d.hold);return}
+  if(a==="promote"){const p=d.parent&&tasks.get(d.parent);if(!p)return;try{await A.setParent(id,p.parent||"")}catch(err){notice(err.message||"移せませんでした")}return}
   if(a==="copy"){
     const kids=kidsOf(id).map(k=>tasks.get(k)).filter(c=>c.status==="todo").sort((x,y)=>(x.seq||0)-(y.seq||0));
     const lines=[`# ${d.name}`,`- プロジェクト: ${pjName(d.pj||"未設定")}`];
@@ -653,6 +713,66 @@ $("#list").addEventListener("click",async e=>{
   if(a==="note"){const inp=li.querySelector('[data-act="notetext"]');const v=inp.value.trim();if(v){inp.value="";await A.note(id,v)}return}
   if(a==="child"){const inp=li.querySelector('[data-act="childtext"]');const v=inp.value.trim();if(v){inp.value="";await A.add(v,d.pj,"",id)}return}
 });
+// ---- ドラッグ＆ドロップ（マウス：押して動かす／タッチ：長押ししてから動かす）----
+async function placeCat(pj,target,after){
+  if(!pj||!target||pj===target) return;
+  const base=(settings.order||[]).slice(); for(const p of catOrder) if(!base.includes(p)) base.push(p);
+  base.splice(base.indexOf(pj),1); const k=base.indexOf(target); base.splice(after?k+1:k,0,pj);
+  await saveSettings({order:base});
+}
+const dnd={st:null,suppress:false};
+function dndClear(){document.querySelectorAll(".drop-into,.drop-before,.drop-after").forEach(x=>x.classList.remove("drop-into","drop-before","drop-after"))}
+function dndTarget(x,y){
+  const s=dnd.st; const el=document.elementFromPoint(x,y); if(!el) return null;
+  if(s.kind==="cat"){const c=el.closest(".cat[data-pj]"); if(!c||c.dataset.pj===s.pj) return null; const r=c.getBoundingClientRect(); return {el:c,type:"cat",pj:c.dataset.pj,after:y>r.top+r.height/2}}
+  const h=el.closest(".cat[data-pj]>h2"); if(h){const c=h.parentElement; const t=tasks.get(s.id); if(c.dataset.pj===t.pj&&!t.parent) return null; return {el:c,type:"pj",pj:c.dataset.pj}}
+  const li=el.closest("#list li.task[data-id]"); if(!li) return null; const tid=li.dataset.id;
+  if(tid===s.id||!tasks.has(tid)||tasks.get(tid).status!=="todo"||descOf(s.id).includes(tid)||tasks.get(s.id).parent===tid) return null;
+  if(depthOf(tid)+1+heightOf(s.id)>2) return null;
+  return {el:li,type:"task",id:tid};
+}
+function dndStart(){
+  const s=dnd.st; s.on=true; document.body.classList.add("dnd"); s.src.classList.add("dragging");
+  const g=document.createElement("div"); g.id="dndghost";
+  g.innerHTML=s.kind==="cat"?`✋ ${esc(pjName(s.pj))}<small>置きたい場所まで動かす</small>`:`✋ ${esc(tasks.get(s.id).name)}<small>タスクの上→子に／見出しの上→そのプロジェクトへ</small>`;
+  document.body.appendChild(g); s.ghost=g; if(navigator.vibrate) try{navigator.vibrate(15)}catch(_){}
+}
+function dndMove(x,y){const s=dnd.st; s.ghost.style.left=(x+14)+"px"; s.ghost.style.top=(y+12)+"px"; dndClear(); const t=dndTarget(x,y); s.tgt=t; if(t) t.el.classList.add(t.type==="cat"?(t.after?"drop-after":"drop-before"):"drop-into");
+  const sm=s.ghost.querySelector("small"); if(sm) sm.textContent=!t?(s.kind==="cat"?"置きたい場所まで動かす":"タスクの上→子に／見出しの上→そのプロジェクトへ"):t.type==="cat"?`→ ${pjName(t.pj)} の${t.after?"下":"上"}に置く`:t.type==="pj"?`→ ${pjName(t.pj)} へ移す${tasks.get(s.id).parent?"（親から外す）":""}`:`→ 「${tasks.get(t.id).name}」の子にする`}
+async function dndEnd(drop){
+  const s=dnd.st; dnd.st=null; if(!s) return; clearTimeout(s.timer);
+  if(!s.on) return;
+  dnd.suppress=true; setTimeout(()=>dnd.suppress=false,350);
+  document.body.classList.remove("dnd"); s.src.classList.remove("dragging"); s.ghost&&s.ghost.remove(); dndClear();
+  const t=drop&&s.tgt; if(!t) return;
+  try{
+    if(t.type==="cat") await placeCat(s.pj,t.pj,t.after);
+    else if(t.type==="pj") await A.moveTo(s.id,t.pj);
+    else if(t.type==="task") await A.setParent(s.id,t.id);
+  }catch(err){notice(esc(err.message||"移せませんでした"))}
+}
+$("#list").addEventListener("pointerdown",e=>{
+  if(e.button!==0||dnd.st) return;
+  if(e.target.closest("input,textarea,select,a,.chk,.detail,.catctl,.idbtn,#catinput")) return;
+  let s=null;
+  const h=e.target.closest(".cat[data-pj]>h2");
+  if(h) s={kind:"cat",pj:h.parentElement.dataset.pj,src:h.parentElement};
+  else{const row=e.target.closest("li.task[data-id]>.row"); if(row){const li=row.parentElement,id=li.dataset.id; if(tasks.has(id)&&tasks.get(id).status==="todo"&&!li.closest(".bundle")) s={kind:"task",id,src:li}}}
+  if(!s) return;
+  s.x=e.clientX; s.y=e.clientY; s.touch=e.pointerType!=="mouse"; s.pid=e.pointerId; dnd.st=s;
+  if(s.touch) s.timer=setTimeout(()=>{if(dnd.st===s){dndStart();dndMove(s.x,s.y)}},380);
+});
+document.addEventListener("pointermove",e=>{
+  const s=dnd.st; if(!s||e.pointerId!==s.pid) return;
+  if(!s.on){const far=Math.hypot(e.clientX-s.x,e.clientY-s.y)>(s.touch?10:6); if(s.touch){if(far){clearTimeout(s.timer);dnd.st=null}return} if(!far) return; dndStart()}
+  e.preventDefault(); dndMove(e.clientX,e.clientY);
+},{passive:false});
+document.addEventListener("touchmove",e=>{if(dnd.st&&dnd.st.on)e.preventDefault()},{passive:false});
+document.addEventListener("pointerup",e=>{if(dnd.st&&e.pointerId===dnd.st.pid)dndEnd(true)});
+document.addEventListener("pointercancel",e=>{if(dnd.st&&e.pointerId===dnd.st.pid)dndEnd(false)});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&dnd.st&&dnd.st.on){e.stopPropagation();dndEnd(false)}},true);
+document.addEventListener("click",e=>{if(dnd.suppress){e.stopPropagation();e.preventDefault();dnd.suppress=false}},true);
+document.addEventListener("contextmenu",e=>{if(dnd.st&&dnd.st.touch)e.preventDefault()});
 $("#list").addEventListener("keydown",e=>{
   if(e.isComposing||e.keyCode===229) return;
   if(e.target.id==="catinput"){if(e.key==="Enter"){e.preventDefault();e.target.blur()}if(e.key==="Escape"){renaming="";render()}return}
@@ -681,10 +801,15 @@ async function saveName(pj,val){
   await saveSettings({names});
 }
 async function moveCat(pj,dir){
-  const ord=catOrder.slice(); const i=ord.indexOf(pj), j=i+dir; if(i<0||j<0||j>=ord.length) return;
-  [ord[i],ord[j]]=[ord[j],ord[i]];
-  const rest=(settings.order||[]).filter(p=>!ord.includes(p));
-  await saveSettings({order:[...ord,...rest]});
+  // 見えているプロジェクトだけで入れ替え、絞り込みで隠れているプロジェクトの位置は保つ
+  const i=catOrder.indexOf(pj), j=i+dir; if(i<0||j<0||j>=catOrder.length) return;
+  const nb=catOrder[j];
+  const base=(settings.order||[]).slice();
+  for(const p of catOrder) if(!base.includes(p)) base.push(p);
+  base.splice(base.indexOf(pj),1);
+  const k=base.indexOf(nb);
+  base.splice(dir>0?k+1:k,0,pj);
+  await saveSettings({order:base});
 }
 $("#history").addEventListener("click",e=>{const b=e.target.closest("[data-undo]");if(b)undoAt(+b.dataset.undo)});
 $("#summary").addEventListener("click",e=>{
@@ -697,7 +822,7 @@ document.addEventListener("keydown",e=>{
   if(e.isComposing) return;
   const el=document.activeElement, typing=el&&(/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)&&el.type!=="checkbox"||el.isContentEditable);
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){e.preventDefault();openSearch();return}
-  if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==="j"){e.preventDefault();closeSearch(false);$("#pjpop").hidden?pjOpen():pjClose();return}
+  if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&["j","e"].includes(e.key.toLowerCase())){e.preventDefault();closeSearch(false);$("#pjpop").hidden?pjOpen():pjClose();return}
   if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key.toLowerCase()==="z"&&!typing){const i=history.findIndex(h=>!h.undone);if(i>=0){e.preventDefault();undoAt(i)}return}
   if(e.metaKey||e.ctrlKey||e.altKey) return;
   if(typing){ if(e.key==="Escape"&&el.id!=="catinput"){el.blur();document.body.classList.remove("chat-open")} return }
@@ -725,7 +850,7 @@ try{new ResizeObserver(()=>document.documentElement.style.setProperty("--topbar-
 
 /* ---------- チャット ---------- */
 function chatTools(nm,log){
-  const pick=no=>{const s=String(no).trim(); if(tasks.has(s)) return s; const id=nm.get(Number(s)); if(!id||!tasks.has(id)) throw new Error(`番号・ID ${s} のタスクはありません`); return id};
+  const pick=no=>{const s=String(no).trim(); if(tasks.has(s)) return s; const id=nm.get(Number(s))||idOfNo(Number(s)); if(!id||!tasks.has(id)) throw new Error(`番号・ID ${s} のタスクはありません`); return id};
   const ok=async(p,line)=>{if(await p){log.push(line);return {ok:true}} throw new Error("保存に失敗しました")};
   const pjs=allPjs();
   const N={type:["integer","string"],description:"一覧の番号、または t で始まるID"}, S={type:"string"};
@@ -773,6 +898,7 @@ $("#chatform").addEventListener("submit",async e=>{
 - 「3 済」「5,7 不要」のような短い返事は、番号のタスクの完了・取消。番号の代わりに [ ] 内のID（t で始まる文字列）で指定されたら、そのIDをそのまま使う。
 - 日報の感想（がんばったこと／発見・感想・成長／苦しみ・つまづき／明日への意気込み）はタスクではない。add_nippou_memo で残す。text は本人の文章をそのまま（日付や「発見は」などの指示部分だけ外し、言い回し・句読点は一字も変えない）。項目が決まらないときは聞き返す。
 - 番号は下の一覧のもの。ツールを実行しても番号は変わらない。今回追加したタスクには番号がないので、その下に子を足すときは add_task の children か、返ってきた ref（parent_ref）を使う。番号を推測しない。
+- URLを補足に残すときは、1行に1つ「何のリンクか URL」の形で書く（例：運用方針ドキュメント https://… ）。何のリンクか分からなければ、内容から短い見出しを付ける。
 - 依頼の意味が一つに決まらないときは、ツールを使わず短く聞き返す。
 - 返事は日本語で2〜4行。やったことを短く伝える。
 一覧:
